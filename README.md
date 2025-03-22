@@ -1,6 +1,14 @@
 # compose2target
 
-This is a tool to convert compose file to target file.
+This is a tool to convert compose file to target file like a 'podman run' command, a .container (quadlet) file, ...
+
+Input file can be a valid compose file or a compose file with an associated mapping file.
+
+compose_file => compose2target => target_file; 'run', 'quadlet', 'k8s', 'helm'
+
+compose_file_with_variables + mapping_file => compose2target => target_file: 'run', 'compose', 'quadlet', 'k8s', 'helm'
+
+any_file_with_variable + mapping_file => compose2target (mapping only option) => varaiables are replaced by their values in mapping_file
 
 > [!IMPORTANT]
 > This tool is still in development and not yet ready for production use.

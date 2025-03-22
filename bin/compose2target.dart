@@ -16,7 +16,7 @@ const String version = '0.0.11';
 const String appName = 'compose2target';
 
 const String t = "  ";
-const List<String> typeList = ['run', 'compose', 'kube', 'ha', 'k8s', 'mapping', 'quadlet', 'dcn'];
+const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet'];
 
 bool workOnFolder = false;
 
@@ -25,13 +25,12 @@ ArgParser buildParser() {
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Print this usage information.')
     ..addFlag('verbose', abbr: 'v', negatable: false, help: 'Show additional command output.')
     ..addFlag('version', negatable: false, help: 'Print the tool version.')
-    ..addFlag('metrics', negatable: false, help: 'Add metrics parameters in output files(GRPC)')
-    ..addFlag('grpc', negatable: false, help: 'Add grpc parameters in output files')
+    ..addFlag('metrics', negatable: false, help: 'Add metrics parameters in output files')
     ..addFlag('nogeneric', negatable: false, help: "don't add generic output in output files")
     ..addOption('input', abbr: 'i', mandatory: false, help: 'Specify YAML file to use in input')
     ..addOption('output', abbr: 'o', mandatory: false, help: 'Specify YAML file to generate')
-    ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|kube|ha|k8s|mapping|quadlet|dcn')
-    ..addOption('mapfile', abbr: 'm', mandatory: true, help: 'Specify mapping file to use')
+    ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet')
+    ..addOption('mapfile', abbr: 'm', mandatory: false, help: 'Specify mapping file to use')
     ..addOption('network', abbr: 'n', mandatory: false, help: 'Specify network name')
     ..addOption('script', abbr: 's', mandatory: false, help: 'Specify script name to generate');
 }
@@ -49,7 +48,6 @@ Future<String> workOnFile(
   String type,
   String networkName,
   bool addMetrics,
-  bool addGrpcTraces,
   bool addGenericOutput,
   bool workOnFolder,
 ) async {
@@ -67,16 +65,17 @@ Future<String> workOnFile(
     doc = {};
   }
 
+  Map mapdoc = {};
   // Lecture du fichier de mapping
-  if (FileSystemEntity.isFileSync(mapFilePath)) {
+  if (mapFilePath.isNotEmpty && FileSystemEntity.isFileSync(mapFilePath)) {
     mapFileContent = File(mapFilePath).readAsStringSync();
+    mapdoc = loadYaml(mapFileContent) as Map;
   }
-  var mapdoc = loadYaml(mapFileContent) as Map;
 
   var outputStr = "";
   switch (type) {
     case 'compose':
-      outputStr = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGrpcTraces, addGenericOutput);
+      outputStr = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
       if (!workOnFolder && outputFilePath.isNotEmpty && scriptName.isNotEmpty) {
         generateComposeScript(scriptName, outputFilePath, null);
       }
@@ -85,27 +84,35 @@ Future<String> workOnFile(
     //  outputStr += generateRunPartInternal(type, mapdoc, doc);
     //  break;
     case 'run':
-      outputStr = generateRunPartInternal(mapdoc, doc, networkName, addMetrics, addGrpcTraces, addGenericOutput);
+      if (mapdoc.isNotEmpty) {
+        outputStr = generateRunPartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+      } else {
+        outputStr = generateRunPartInternalWithoutMapping(doc, networkName, addMetrics, addGenericOutput);
+      }
       break;
     case 'quadlet':
-      if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
-        File("${outputFilePath}_tmp.yaml").deleteSync();
-      }
-      if (FileSystemEntity.isFileSync(outputFilePath)) {
-        File(outputFilePath).deleteSync();
-      }
-      String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGrpcTraces, addGenericOutput);
-      // Generate compose file as intermediate file
-      await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
+      if (mapdoc.isNotEmpty) {
+        //This option is only available if mapping file is present
+        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
+          File("${outputFilePath}_tmp.yaml").deleteSync();
+        }
+        if (FileSystemEntity.isFileSync(outputFilePath)) {
+          File(outputFilePath).deleteSync();
+        }
+        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+        // Generate compose file as intermediate file
+        await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
 
-      // Now we use the generated compose file as source of quadlet part
-      String yamlContentTemp = "";
-      //if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
-      // Lecture du fichier yaml passé en paramètre, stockage dans une String
-      yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
-      Map docTemp = loadYaml(yamlContentTemp) as Map;
-      outputStr += generateQuadletPartInternal(docTemp);
-      //}
+        // Now we use the generated compose file as source of quadlet part
+        String yamlContentTemp = "";
+        // Lecture du fichier yaml passé en paramètre, stockage dans une String
+        yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
+        Map docTemp = loadYaml(yamlContentTemp) as Map;
+        outputStr += generateQuadletPartInternal(docTemp);
+      } else {
+        // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
+        outputStr += generateQuadletPartInternal(doc);
+      }
       break;
     case 'mapping':
       outputStr = fullMappingOnly(yamlContent, mapdoc);
@@ -128,7 +135,6 @@ void mainFunction(List<String> arguments) async {
   String networkName = "";
   String scriptName = "";
   bool addMetrics = false;
-  bool addGrpcTraces = false;
   bool addGenericOutput = true;
 
   final ArgParser argParser = buildParser();
@@ -153,9 +159,6 @@ void mainFunction(List<String> arguments) async {
     }
     if (results.wasParsed('metrics')) {
       addMetrics = true;
-    }
-    if (results.wasParsed('grpc')) {
-      addGrpcTraces = true;
     }
 
     // fichier "compose"
@@ -231,7 +234,6 @@ void mainFunction(List<String> arguments) async {
         type,
         networkName,
         addMetrics,
-        addGrpcTraces,
         addGenericOutput,
         true,
       );
@@ -240,7 +242,7 @@ void mainFunction(List<String> arguments) async {
       generateComposeScript(scriptName, outputFilePath, fileList);
     }
   } else {
-    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, addMetrics, addGrpcTraces, addGenericOutput, false);
+    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, addMetrics, addGenericOutput, false);
   }
 }
 

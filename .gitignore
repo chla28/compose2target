@@ -3,3 +3,4 @@
 .dart_tool/
 .vscode/
 bin/compose2target
+vnrtmp/

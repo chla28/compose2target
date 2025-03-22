@@ -59,6 +59,26 @@ YamlMap searchService(String searchedStr, Map servicesList) {
   return (labelStr, labelValue);
 }
 
+// inputString = /host:ro,rslave  ==> ajout de ",Z" avec selinux
+// inputString = /etc/grafana/provisioning/datasources/datasources.yml  ==> ajout de ":Z" avec selinux
+String checkSpecialVolumes(String inputString, bool useSELinux) {
+  String outputStr = "";
+  var idx = inputString.indexOf(":");
+  //print(idx);
+  if (idx == -1) {
+    String selinux = (useSELinux) ? ":Z" : "";
+    outputStr += "$inputString$selinux";
+  } else {
+    if (inputString.endsWith(":Z")) {
+      outputStr += "$inputString";
+    } else {
+      String selinux = (useSELinux) ? ",Z" : "";
+      outputStr += "$inputString$selinux";
+    }
+  }
+  return outputStr;
+}
+
 // Find a mount value associated to a container (service)
 String searchMountValue(String searchedStr, String service, Map servicesList) {
   YamlList? mountValues = (servicesList[service] != null ? servicesList[service]['volumes'] : null);
@@ -105,42 +125,4 @@ String fullMappingOnly(String yamlContent, Map mappingData) {
     });
   }
   return outputStr;
-}
-
-bool checkGrpcAuthorized(var labelsList) {
-  // If data are only indented, it's a YamlMap
-  bool useGrpcAuthorized = false;
-  if (labelsList is YamlMap) {
-    YamlMap lstLabels = labelsList;
-    lstLabels.forEach((key, value) {
-      if (key == "grpc" && value == "true") {
-        useGrpcAuthorized = true;
-      }
-    });
-  }
-  // If data are preceding byt '-', it's a YamlList containing a single key,value YamlMap
-  if (labelsList is YamlList) {
-    YamlList lstLabels = labelsList;
-    for (var item in lstLabels) {
-      if (item is String) {
-        // Check if field separator is ':' ou '='
-        var idx = item.indexOf(":");
-        if (idx == -1) {
-          idx = item.indexOf("=");
-        }
-        String labelStr = item.substring(0, idx);
-        String labelValue = item.substring(idx + 1);
-        if (labelStr == "grpc" && labelValue == "true") {
-          useGrpcAuthorized = true;
-          break;
-        }
-      } else {
-        if (item.keys.first == "grpc" && item.values.first == "true") {
-          useGrpcAuthorized = true;
-          break;
-        }
-      }
-    }
-  }
-  return useGrpcAuthorized;
 }

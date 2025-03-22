@@ -4,11 +4,10 @@ import 'package:yaml/yaml.dart';
 
 bool useMetricsAuthorized = false;
 bool useMetricsHttpAuthorized = false;
-bool useGrpcAuthorized = false;
 
-String generateDeployPart(YamlMap? deployList, String containerName, var variablesList) {
+String generateDeployPart(YamlMap? deployList, String containerName) {
   String outputStr = "";
-/*
+  /*
     deploy:
       resources:
         limits:
@@ -62,9 +61,6 @@ String generateLabelsPart(String containerName, var labelsList) {
         if (labelStr == "metricshttp") {
           useMetricsHttpAuthorized = bool.parse(labelValue);
         }
-        if (labelStr == "grpc") {
-          useGrpcAuthorized = bool.parse(labelValue);
-        }
         outputStr += "$t$t$t- $containerName.$labelStr=$labelValue\n";
       } else {
         if (item.keys.first == "metrics") {
@@ -83,19 +79,9 @@ String generateLabelsPart(String containerName, var labelsList) {
             useMetricsHttpAuthorized = true;
           }
         }
-        if (item.keys.first == "grpc") {
-          bool? foo = bool.tryParse(item.values.first);
-          if (foo == null || foo == false) {
-            useGrpcAuthorized = false;
-          } else {
-            useGrpcAuthorized = true;
-          }
-        }
         outputStr += "$t$t$t- $containerName.${item.keys.first}=\"${item.values.first}\"\n";
       }
     }
-    //useMetricsAuthorized = checkMetricsAuthorized(labelsList);
-    //useGrpcAuthorized = checkGrpcAuthorized(labelsList);
   }
   return outputStr;
 }
@@ -191,8 +177,9 @@ String generatePortsPart(portsList, variablesList) {
         // "127.0.0.1:8000:8000"
         RegExp ipMapping = RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$');
         // "127.0.0.1:8000:8000/udp"
-        RegExp ipMappingProtocol =
-            RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))/(udp|tcp)$');
+        RegExp ipMappingProtocol = RegExp(
+          r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))/(udp|tcp)$',
+        );
         // MAPTOTO_PORT:8051
         RegExp portVarMapping = RegExp(r'^[_a-zA-Z0-9]*:(?:-?(?:0|[1-9][0-9]*))$');
 
@@ -220,18 +207,27 @@ String generatePortsPart(portsList, variablesList) {
           if (portStr == "ANYONE") {
             outputStr += "$t$t$t- \"${portValue.toString()}\"\n";
           } else {
-            String searchPortValue = searchVarValue(portStr, variablesList);
-            outputStr += "$t$t$t- \"$searchPortValue:$portValue\"\n";
+            if (variablesList != null) {
+              String searchPortValue = searchVarValue(portStr, variablesList);
+              outputStr += "$t$t$t- \"$searchPortValue:$portValue\"\n";
+            }
           }
         }
       } else {
         Map port = value;
-        String portStr = port.keys.first;
+        String portStr = "";
+        if (port.keys.first is int) {
+          portStr = port.keys.first.toString();
+        } else {
+          portStr = port.keys.first;
+        }
         if (portStr == "ANYONE") {
           outputStr += "$t$t$t- \"${port.values.first}\"\n";
         } else {
-          String searchPortValue = searchVarValue(portStr, variablesList);
-          outputStr += "$t$t$t- \"$searchPortValue:${port.values.first}\"\n";
+          if (variablesList != null) {
+            String searchPortValue = searchVarValue(portStr, variablesList);
+            outputStr += "$t$t$t- \"$searchPortValue:${port.values.first}\"\n";
+          }
         }
       }
     }
@@ -310,7 +306,7 @@ esac
 }
 
 // objStr = 'configs' | 'secrets'
-String generateObjectsPartLevel2(String objStr, var configsList, Map mappingData, {String tabStr = "$t$t"}) {
+String generateObjectsPartLevel2(String objStr, var configsList, {String tabStr = "$t$t"}) {
   String outputStr = "";
   outputStr += "$tabStr$objStr:\n";
   if (configsList is YamlMap) {
@@ -320,7 +316,7 @@ String generateObjectsPartLevel2(String objStr, var configsList, Map mappingData
           outputStr += "$tabStr$t$key: {}\n";
         } else {
           String foo = "$tabStr$t";
-          outputStr += generateObjectsPartLevel2(key, value, mappingData, tabStr: foo);
+          outputStr += generateObjectsPartLevel2(key, value, tabStr: foo);
           /*"$tabStr$key:\n";
           value.forEach((key2, value2) {
             outputStr += "$tabStr$t$key2: $value2\n";
@@ -348,38 +344,19 @@ String generateObjectsPartLevel2(String objStr, var configsList, Map mappingData
   return outputStr;
 }
 
-// inputString = /host:ro,rslave  ==> ajout de ",Z" avec selinux
-// inputString = /etc/grafana/provisioning/datasources/datasources.yml  ==> ajout de ":Z" avec selinux
-String checkSpecialVolumes(String inputString, bool useSELinux) {
-  String outputStr = "";
-  var idx = inputString.indexOf(":");
-  //print(idx);
-  if (idx == -1) {
-    String selinux = (useSELinux) ? ":Z" : "";
-    outputStr += "$inputString$selinux";
-  } else {
-    String selinux = (useSELinux) ? ",Z" : "";
-    outputStr += "$inputString$selinux";
-  }
-  return outputStr;
-}
-
-String workWithServices(YamlMap containersList, Map mappingData, String network, bool addMetrics, bool addGrpc, bool addGenericOutput) {
+String workWithServices(YamlMap containersList, Map mappingData, String network, bool addMetrics, bool addGenericOutput) {
   // Get data from mappingFile
   YamlMap servicesList = mappingData['services'];
   YamlMap variablesList = mappingData['variables'];
   YamlMap? genericList = (addGenericOutput) ? mappingData['genericoutput'] : null;
-  YamlMap metricsList = mappingData['metrics'];
-  YamlMap metricsHttpList = mappingData['metricshttp'];
-  YamlMap grpcList = mappingData['grpc'];
+  YamlMap? metricsList = (mappingData.isNotEmpty) ? mappingData['metrics'] : null;
+  YamlMap? metricsHttpList = (mappingData.isNotEmpty) ? mappingData['metricshttp'] : null;
   String outputStr = "";
 
   // Working with containers
   outputStr += "services:\n";
   // Level 1: Each key 'services' present is associated to a container
   containersList.forEach((key, value) {
-    //useMetricsAuthorized = true;
-    //useGrpcAuthorized = false;
     // The key is the container name
     String containerName = key;
     outputStr += "$t$containerName:\n";
@@ -435,11 +412,9 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     var envList = containersList[containerName]['environment'];
     var envList2 = (servicesList[containerName] != null ? servicesList[containerName]['environment'] : null);
     var envGeneric = (genericList != null ? genericList['environment'] : null);
-    YamlList? envMetrics = metricsList['environment'];
-    YamlList? envMetricsHttp = metricsHttpList['environment'];
-    YamlList? envGrpc = grpcList['environment'];
+    YamlList? envMetrics = (metricsList != null) ? metricsList['environment'] : null;
+    YamlList? envMetricsHttp = (metricsHttpList != null) ? metricsHttpList['environment'] : null;
     if (envList != null || envList2 != null || envGeneric != null) {
-      //|| envMetrics != null || envGrpc != null) {
       outputStr += "$t${t}environment:\n";
     }
     //outputStr += "$t${t}environment:\n";
@@ -464,16 +439,13 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     }
     useMetricsAuthorized = false;
     useMetricsHttpAuthorized = false;
-    if (addGrpc && useGrpcAuthorized && envGrpc != null) {
-      outputStr += generateEnvPart(envGrpc, variablesList, containerName);
-    }
 
     // Level 2 : deploy:
     YamlMap? deployList = containersList[containerName]['deploy'];
     //YamlList? deployList2 = servicesList[containerName]['deploy'];
     if (deployList != null) {
       //&& deployList2 != null) {
-      outputStr += generateDeployPart(deployList, containerName, variablesList);
+      outputStr += generateDeployPart(deployList, containerName);
     }
 
     // Level 2 :
@@ -483,7 +455,7 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     } else {
       var networksList = containersList[containerName]['networks'];
       if (networksList != null) {
-        outputStr += generateObjectsPartLevel2('networks', networksList, variablesList);
+        outputStr += generateObjectsPartLevel2('networks', networksList);
       }
     }
     // Level 2 : depends_on
@@ -527,12 +499,12 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     // Level 2 : configs
     var configsList = containersList[containerName]['configs'];
     if (configsList != null) {
-      outputStr += generateObjectsPartLevel2('configs', configsList, mappingData);
+      outputStr += generateObjectsPartLevel2('configs', configsList);
     }
     // Level 2 : secrets
     var secretsList = containersList[containerName]['secrets'];
     if (secretsList != null) {
-      outputStr += generateObjectsPartLevel2('secrets', secretsList, mappingData);
+      outputStr += generateObjectsPartLevel2('secrets', secretsList);
     }
 
     // Level 2 : working_dir
@@ -546,7 +518,7 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
   return outputStr;
 }
 
-String workWithObjectsPartLevel1(String objStr, YamlMap configsList, Map mappingData, {String tabStr = ""}) {
+String workWithObjectsPartLevel1(String objStr, YamlMap configsList, {String tabStr = ""}) {
   String outputStr = "";
   outputStr += "$tabStr$objStr:\n";
   configsList.forEach((key, value) {
@@ -555,7 +527,7 @@ String workWithObjectsPartLevel1(String objStr, YamlMap configsList, Map mapping
         outputStr += "$tabStr$t$key: {}\n";
       } else {
         String foo = "$tabStr$t";
-        outputStr += workWithObjectsPartLevel1(key, value, mappingData, tabStr: foo);
+        outputStr += workWithObjectsPartLevel1(key, value, tabStr: foo);
       }
     } else {
       if (value == null) {
@@ -568,7 +540,7 @@ String workWithObjectsPartLevel1(String objStr, YamlMap configsList, Map mapping
   return outputStr;
 }
 
-String generateComposePartInternal(Map mappingData, Map inputData, String network, bool addMetrics, bool addGrpc, bool addGenericOutput) {
+String generateComposePartInternal(Map mappingData, Map inputData, String network, bool addMetrics, bool addGenericOutput) {
   // if a key 'name' is present, a pod will be created and the value will be used for the POD name
   String outputStr = "";
 
@@ -581,7 +553,7 @@ String generateComposePartInternal(Map mappingData, Map inputData, String networ
   // Level 0 : Check if field 'networks' is present
   YamlMap? networksList = inputData['networks'];
   if (networksList != null) {
-    outputStr += workWithObjectsPartLevel1('networks', networksList, mappingData);
+    outputStr += workWithObjectsPartLevel1('networks', networksList);
   } else {
     // Level 0 : Generate 'network' section if needed
     outputStr += generateNetworksPart('compose', network);
@@ -591,25 +563,25 @@ String generateComposePartInternal(Map mappingData, Map inputData, String networ
   // Get data from inputFile
   YamlMap? containersList = inputData['services'];
   if (containersList != null) {
-    outputStr += workWithServices(containersList, mappingData, network, addMetrics, addGrpc, addGenericOutput);
+    outputStr += workWithServices(containersList, mappingData, network, addMetrics, addGenericOutput);
   }
 
   // Level 0 : Check if field 'volumes' is present
   YamlMap? volumesList = inputData['volumes'];
   if (volumesList != null) {
-    outputStr += workWithObjectsPartLevel1('volumes', volumesList, mappingData);
+    outputStr += workWithObjectsPartLevel1('volumes', volumesList);
   }
 
   // Level 0 : Check if field 'secrets' is present
   YamlMap? secretsList = inputData['secrets'];
   if (secretsList != null) {
-    outputStr += workWithObjectsPartLevel1('secrets', secretsList, mappingData);
+    outputStr += workWithObjectsPartLevel1('secrets', secretsList);
   }
 
   // Level 0 : Check if field 'configs' is present
   YamlMap? configsList = inputData['configs'];
   if (configsList != null) {
-    outputStr += workWithObjectsPartLevel1('configs', configsList, mappingData);
+    outputStr += workWithObjectsPartLevel1('configs', configsList);
   }
 
   return outputStr;

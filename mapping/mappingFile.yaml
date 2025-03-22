@@ -1,0 +1,67 @@
+variables:
+  HOST_NAME:          "127.0.0.1"
+  LOCALIP:            "___LOCALIP___"
+  SERVICENAME:        "NOTSET"
+  MARIADB_PORT:       "3306"
+  REDIS_PORT:         "6379"
+  OTELGRPC_PORT:      "4317"
+  OTELHTTP_PORT:      "4318"
+genericoutput: #  Options added to all containers
+    labels:
+        - comment= "Chla Configuration"
+    #environment:
+        #- PODMAN_USERNS="keep-id:uid=1000,gid=1000"
+networks:
+    chla1_network:
+      description: Network 1 for CHLA
+      subnet: 10.87.0.0/24
+      gateway: 10.87.0.1
+    chla2_network:
+      description: Network 1 for CHLA
+      subnet: 10.88.0.0/24
+      gateway: 10.88.0.1
+pods:
+    chla-pod1:
+      description: Chla Pod1
+      networks:
+        - chla1_network
+    chla-pod2:
+      description: Chla Pod2
+      networks:
+        - chla2_network
+services:
+    mariadb-chla:
+        image: registry.redhat.io/rhel9/mariadb-1011:latest
+        volumes:
+            - /local/data/DB/Chla_DB: /var/lib/mysql/data
+        ports:
+            - MARIADB_PORT:3306
+    redis-db:
+        labels:
+            - copyright: "CHLA28 property 2025"
+        image: docker.io/redislabs/redis
+        volumes:
+            - /local/data/DB/redis_data: /data
+        ports:
+            - REDIS_PORT:6379
+#metrics:
+#    environment:
+#        - JAVA_TOOL_OPTIONS=-javaagent:/mnt/opentelemetry-javaagent.jar
+#        - OTEL_SERVICE_NAME=$SERVICENAME
+#        - OTEL_RESOURCE_ATTRIBUTES=service=$SERVICENAME,env=dev
+#        - OTEL_EXPORTER_OTLP_ENDPOINT=http://$LOCALIP:$OTELGRPC_PORT
+#        - OTEL_METRIC_EXPORT_INTERVAL=15000
+#        - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+#        - OTEL_LOGS_EXPORTER=otlp
+#        - OTEL_TRACES_EXPORTER=otlp
+#        - OTEL_METRICS_EXPORTER=otlp
+#metricshttp:
+#    environment:
+#        - JAVA_TOOL_OPTIONS=-javaagent:/mnt/opentelemetry-javaagent.jar
+#        - OTEL_SERVICE_NAME=$SERVICENAME
+#        - OTEL_RESOURCE_ATTRIBUTES=service=$SERVICENAME,env=dev
+#        - OTEL_EXPORTER_OTLP_ENDPOINT=http://$LOCALIP:$OTELHTTP_PORT
+#        - OTEL_METRIC_EXPORT_INTERVAL=15000
+#        - OTEL_LOGS_EXPORTER=otlp
+#        - OTEL_TRACES_EXPORTER=otlp
+#        - OTEL_METRICS_EXPORTER=otlp

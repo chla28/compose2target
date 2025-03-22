@@ -1,4 +1,4 @@
-//import 'package:process_run/shell_run.dart';
+import 'package:compose2target/tools.dart';
 import 'package:yaml/yaml.dart';
 
 // Les objets 'configs' ne sont pas supportés par les quadlets
@@ -30,6 +30,54 @@ Restart=always
 [Install]
 WantedBy=local.target
 */
+String generatePortsPartForQuadlet(value) {
+  String outputStr = "";
+  if (value is String) {
+    // "[[IP:](port|range)](port|range)[/protocol]"
+    // "3030"
+    RegExp singlePort = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))$');
+    // "3000-3050"
+    RegExp rangePort = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$');
+    // "8000:8000"
+    RegExp portMapping = RegExp(r'^(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$');
+    // "3000-3050:4000-4050"
+    RegExp portRangeMapping = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$');
+    // "127.0.0.1:8000:8000"
+    RegExp ipMapping = RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$');
+    // "127.0.0.1:8000:8000/udp"
+    RegExp ipMappingProtocol = RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))/(udp|tcp)$');
+
+    if (singlePort.hasMatch(value)) {
+      //print("single port found        : $value");
+      outputStr += value;
+    } else if (rangePort.hasMatch(value)) {
+      //print("range found              : $value");
+      outputStr += value;
+    } else if (portMapping.hasMatch(value)) {
+      //print("port mapping found       : $value");
+      outputStr += value;
+    } else if (portRangeMapping.hasMatch(value)) {
+      //print("port range mapping found : $value");
+      outputStr += value;
+    } else if (ipMapping.hasMatch(value)) {
+      //print("ip mapping found         : $value");
+      outputStr += value;
+    } else if (ipMappingProtocol.hasMatch(value)) {
+      //print("ip mapping protocol found: $value");
+      outputStr += value;
+    }
+  } else {
+    Map port = value;
+    String portStr = "";
+    if (port.keys.first is int) {
+      portStr = port.keys.first.toString();
+    } else {
+      portStr = port.keys.first;
+    }
+    outputStr += "$portStr:${port.values.first}";
+  }
+  return outputStr;
+}
 
 String generateQuadletPartInternal(Map inputData) {
   // Get data from inputFile
@@ -74,7 +122,8 @@ String generateQuadletPartInternal(Map inputData) {
     YamlList? portList = containersList[containerName]['ports'];
     if (portList != null) {
       for (var value in portList) {
-        outputStr += "PublishPort=$value\n";
+        String portPart = generatePortsPartForQuadlet(value);
+        outputStr += "PublishPort=$portPart\n";
       }
     }
     YamlList? envList = containersList[containerName]['environment'];
@@ -86,7 +135,14 @@ String generateQuadletPartInternal(Map inputData) {
     YamlList? volumeList = containersList[containerName]['volumes'];
     if (volumeList != null) {
       for (var value in volumeList) {
-        outputStr += "Volume=$value\n";
+        if (value is String) {
+          final (localStr, mountStrCont) = extractStrings(value);
+          String tmp = checkSpecialVolumes(mountStrCont, true);
+          outputStr += "Volume=$localStr:$tmp\n";
+        } else {
+          String tmp = checkSpecialVolumes(value.values.first, true);
+          outputStr += "Volume=${value.keys.first}:$tmp\n";
+        }
       }
     }
     YamlList? networkList = containersList[containerName]['networks'];

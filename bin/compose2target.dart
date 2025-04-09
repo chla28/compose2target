@@ -5,18 +5,23 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:compose2target/generators/ha.dart';
 import 'package:path/path.dart';
+//import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:yaml/yaml.dart';
 import 'package:compose2target/generators/compose.dart';
 import 'package:compose2target/generators/quadlet.dart';
 import 'package:compose2target/generators/run.dart';
 import 'package:compose2target/tools.dart';
 
-const String version = '0.0.11';
-const String appName = 'compose2target';
-
 const String t = "  ";
-const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet'];
+const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet', 'ha'];
+
+//final pubspec = File('pubspec.yaml').readAsStringSync();
+//final parsed = Pubspec.parse(pubspec);
+
+final String version = "0.1.1"; //parsed.version.toString();
+final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;
 
@@ -36,7 +41,7 @@ ArgParser buildParser() {
 }
 
 void printUsage(ArgParser argParser) {
-  print('Usage: yamlConverter <flags> [arguments]');
+  print('Usage: $appName <flags> [arguments]');
   print(argParser.usage);
 }
 
@@ -114,6 +119,33 @@ Future<String> workOnFile(
         outputStr += generateQuadletPartInternal(doc);
       }
       break;
+    case 'ha':
+      if (mapdoc.isNotEmpty) {
+        //This option is only available if mapping file is present
+        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
+          File("${outputFilePath}_tmp.yaml").deleteSync();
+        }
+        if (FileSystemEntity.isFileSync(outputFilePath)) {
+          File(outputFilePath).deleteSync();
+        }
+        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+        // Generate compose file as intermediate file
+        await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
+
+        // Now we use the generated compose file as source of quadlet part
+        String yamlContentTemp = "";
+        // Lecture du fichier yaml passé en paramètre, stockage dans une String
+        yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
+        Map docTemp = loadYaml(yamlContentTemp) as Map;
+        outputStr += generateHAPartInternal(docTemp);
+        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
+          File("${outputFilePath}_tmp.yaml").deleteSync();
+        }
+      } else {
+        // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
+        outputStr += generateHAPartInternal(doc);
+      }
+      break;
     case 'mapping':
       outputStr = fullMappingOnly(yamlContent, mapdoc);
       break;
@@ -174,7 +206,7 @@ void mainFunction(List<String> arguments) async {
       }
     }
 
-    // WARNING: if workOnFolder is true, outputFilePath muste be a[n existing] folder
+    // WARNING: if workOnFolder is true, outputFilePath must be a[n existing] folder
     if (results.wasParsed('output')) {
       outputFilePath = results.option('output')!;
     }

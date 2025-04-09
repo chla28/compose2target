@@ -1,0 +1,24 @@
+name: chla-pod1
+services:
+    mariadb-chla:
+        container_name: mariadb-chla
+        image: registry.redhat.io/rhel9/mariadb-1011:latest
+        labels:
+            - description:"Database for demo"
+        restart: always
+        volumes:
+            - /local/data/DB/Chla_DB: /var/lib/mysql/data
+        ports:
+            - MARIADB_PORT: 3306
+        environment:
+            - MYSQL_USER=$MARIADB_USER
+            - MYSQL_PASSWORD=$MARIADB_PASSWORD
+            - MYSQL_DATABASE=$MARIADB_DATABASE
+        deploy:
+            resources:
+                limits:
+                    cpus: 1
+                    memory: 512M
+                reservations:
+                    cpus: '0.5'
+                    memory: 256M

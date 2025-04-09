@@ -2,10 +2,13 @@ variables:
   HOST_NAME:          "127.0.0.1"
   LOCALIP:            "___LOCALIP___"
   SERVICENAME:        "NOTSET"
-  MARIADB_PORT:       "3306"
+  MARIADB_PORT:       "14306"
   REDIS_PORT:         "6379"
   OTELGRPC_PORT:      "4317"
   OTELHTTP_PORT:      "4318"
+  MARIADB_USER:       "chlauser"
+  MARIADB_PASSWORD:   "chlauser1"
+  MARIADB_DATABASE:   "chladb"
 genericoutput: #  Options added to all containers
     labels:
         - comment= "Chla Configuration"

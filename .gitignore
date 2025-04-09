@@ -4,3 +4,4 @@
 .vscode/
 bin/compose2target
 vnrtmp/
+localsbom.sbom

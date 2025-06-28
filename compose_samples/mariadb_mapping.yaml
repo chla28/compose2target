@@ -14,11 +14,23 @@ services:
             - MYSQL_USER=$MARIADB_USER
             - MYSQL_PASSWORD="$MARIADB_PASSWORD"
             - MYSQL_DATABASE="$MARIADB_DATABASE"
+        secrets:
+            - mariadb-chla-secret
+        security_opt:
+            - "label=level:s0:c100,c101"
+            - "label=filetype:usb_t"
+            - "label=type:spc_t"
+            - "label=disable"
+            - "label=nested"
+        configs:
+            - jhkjhkjhjh
+            - yyy
+        working_dir: /var/lib/mysql/data
         deploy:
             resources:
                 limits:
-                    cpus: 1
+                    cpus: 2
                     memory: 512M
                 reservations:
-                    cpus: '0.5'
+                    cpus: '1.5'
                     memory: 256M

@@ -242,7 +242,8 @@ void generateComposeScript(String scriptName, String data, List<String>? fileLis
 #!/bin/bash
 """;
 
-  String mainpart = """
+  String mainpart =
+      """
 ACTION=\$1
 COMPOSE=\$2
 if [ "\${COMPOSE}" == "" ]; then
@@ -363,6 +364,9 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     // Level 2 :
     outputStr += "$t${t}container_name: $containerName\n";
 
+    //var foo = containersList[containerName];
+    //print("foo:${foo.toString()}");
+
     // Level 2 :
     var tgtImage = servicesList[containerName];
     if (tgtImage == null) {
@@ -442,9 +446,7 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
 
     // Level 2 : deploy:
     YamlMap? deployList = containersList[containerName]['deploy'];
-    //YamlList? deployList2 = servicesList[containerName]['deploy'];
     if (deployList != null) {
-      //&& deployList2 != null) {
       outputStr += generateDeployPart(deployList, containerName);
     }
 
@@ -459,23 +461,23 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
       }
     }
     // Level 2 : depends_on
-    if (containersList[key]['depends_on'] != null) {
+    if (containersList[containerName]['depends_on'] != null) {
       outputStr += "$t${t}depends_on:\n";
-      YamlList dependList = containersList[key]['depends_on'];
+      YamlList dependList = containersList[containerName]['depends_on'];
       for (var value in dependList) {
         outputStr += "$t$t$t- $value\n";
       }
     }
     // Level 2 :
-    if (containersList[key]['volumes'] != null) {
+    if (containersList[containerName]['volumes'] != null) {
       outputStr += "$t${t}volumes:\n";
-      //containersList[key]['volumes'] : volumes declared in yam file
-      //servicesList[key]['volumes'] : volumes declared in mapping file
-      YamlList mountList = containersList[key]['volumes'];
+      //containersList[containerName]['volumes'] : volumes declared in yam file
+      //servicesList[containerName]['volumes'] : volumes declared in mapping file
+      YamlList mountList = containersList[containerName]['volumes'];
       for (var value in mountList) {
         if (value is String) {
           final (ignoreStr, mountStrCont) = extractStrings(value);
-          String retStr = searchMountValue(mountStrCont, key, servicesList);
+          String retStr = searchMountValue(mountStrCont, containerName, servicesList);
           if (retStr.isNotEmpty) {
             String tmp = checkSpecialVolumes(mountStrCont, true);
             outputStr += "$t$t$t- $retStr:$tmp\n";
@@ -485,7 +487,7 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
           }
         } else {
           // value is Map
-          String retStr = searchMountValue(value.values.first, key, servicesList);
+          String retStr = searchMountValue(value.values.first, containerName, servicesList);
           if (retStr.isNotEmpty) {
             String tmp = checkSpecialVolumes(value.values.first, true);
             outputStr += "$t$t$t- $retStr:$tmp\n";
@@ -513,6 +515,11 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
       outputStr += "$t${t}working_dir: $workdir\n";
     }
 
+    // Level 2 : security_opt
+    var securityOptList = containersList[containerName]['security_opt'];
+    if (securityOptList != null) {
+      outputStr += generateObjectsPartLevel2('security_opt', securityOptList);
+    }
     // Level 2 : tmpfs, security_opt, profiles
   });
   return outputStr;

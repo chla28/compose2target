@@ -1,6 +1,6 @@
 name: chla-pod1
 services:
-    mariadb-chla:
+    mariadb-chhhhla:
         container_name: mariadb-chla
         image: registry.redhat.io/rhel9/mariadb-1011:latest
         labels:
@@ -13,12 +13,19 @@ services:
         environment:
             - MYSQL_USER=chlauser
             - MYSQL_PASSWORD=chlauser1
-            - MYSQL_DATABASE=chladb
+        secrets:
+            - mariadb-chla-secret
+        security_opt:
+            - "label=level:s0:c100,c101"
+        configs:
+            - jhkjhkjhjh
+            - yyy
+        working_dir: /var/lib/mysql/data
         deploy:
             resources:
                 limits:
-                    cpus: 1
+                    cpus: 2
                     memory: 512M
                 reservations:
-                    cpus: '0.5'
+                    cpus: '1.5'
                     memory: 256M

@@ -98,9 +98,20 @@ String generateHAPartInternal(Map inputData, String userName) {
       envListStr = envListStr.replaceAll(RegExp(r'"'), '\\"');
     }
 
-    String envLogStr = "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m" ;
+    String envSecuListStr = "";
+    YamlList? securityOptList = containersList[key]['security_opt'];
+    if (securityOptList != null) {
+      for (var value in securityOptList) {
+        if (value is String && value.startsWith("label=")) {
+          envSecuListStr += "--security-opt $value ";
+        }
+      }
+      envSecuListStr = envSecuListStr.replaceAll(RegExp(r'"'), '\\"');
+    }
 
-    outputStr += "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr\" \\\n";
+    String envLogStr = "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m";
+
+    outputStr += "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr $envSecuListStr\" \\\n";
     outputStr += "\top monitor timeout=\"30s\" interval=\"30s\" \n";
   });
 

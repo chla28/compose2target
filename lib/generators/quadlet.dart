@@ -157,6 +157,32 @@ String generateQuadletPartInternal(Map inputData) {
         outputStr += "Secret=$value\n";
       }
     }
+    // SecurityLabelLevel=s0:c1,c2
+    YamlList? secutityLevelList = containersList[containerName]['security_opt'];
+    if (secutityLevelList != null) {
+      for (var value in secutityLevelList) {
+        if (value is String) {
+          if (value.startsWith("label=level:")) {
+            // label=level:s0:c1,c2
+            value = value.substring(12); // remove "label=level:"
+            outputStr += "SecurityLabelLevel=$value\n";
+          } else if (value.startsWith("label=filetype")) {
+            // label=filetype:container_t
+            value = value.substring(15); // remove "label=filetype:"
+            outputStr += "SecurityLabelFileType=$value\n";
+          } else if (value.startsWith("label=type:")) {
+            // label=type:container_t
+            value = value.substring(11); // remove "label=type:"
+            outputStr += "SecurityLabelType=$value\n";
+          } else if (value.startsWith("label=disable")) {
+            outputStr += "SecurityLabelDisable=true\n";
+          } else if (value.startsWith("label=nested")) {
+            outputStr += "SecurityLabelNested=true\n";
+          }
+        }
+      }
+    }
+
     var cmd2 = containersList[containerName]['command'];
     if (cmd2 != null) {
       /*var shell = Shell();

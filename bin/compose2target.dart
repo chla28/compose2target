@@ -20,7 +20,7 @@ const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet', 'h
 //final pubspec = File('pubspec.yaml').readAsStringSync();
 //final parsed = Pubspec.parse(pubspec);
 
-final String version = "0.1.1"; //parsed.version.toString();
+final String version = "0.1.6"; //parsed.version.toString();
 final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;
@@ -34,10 +34,11 @@ ArgParser buildParser() {
     ..addFlag('nogeneric', negatable: false, help: "don't add generic output in output files")
     ..addOption('input', abbr: 'i', mandatory: false, help: 'Specify YAML file to use in input')
     ..addOption('output', abbr: 'o', mandatory: false, help: 'Specify YAML file to generate')
-    ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet')
+    ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet|ha')
     ..addOption('mapfile', abbr: 'm', mandatory: false, help: 'Specify mapping file to use')
     ..addOption('network', abbr: 'n', mandatory: false, help: 'Specify network name')
-    ..addOption('script', abbr: 's', mandatory: false, help: 'Specify script name to generate');
+    ..addOption('script', abbr: 's', mandatory: false, help: 'Specify script name to generate')
+    ..addOption('user', abbr: 'u', mandatory: false, help: 'Specify user for ha configuration');
 }
 
 void printUsage(ArgParser argParser) {
@@ -52,6 +53,7 @@ Future<String> workOnFile(
   String scriptName,
   String type,
   String networkName,
+  String userName,
   bool addMetrics,
   bool addGenericOutput,
   bool workOnFolder,
@@ -137,13 +139,13 @@ Future<String> workOnFile(
         // Lecture du fichier yaml passé en paramètre, stockage dans une String
         yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
         Map docTemp = loadYaml(yamlContentTemp) as Map;
-        outputStr += generateHAPartInternal(docTemp);
+        outputStr += generateHAPartInternal(docTemp, userName);
         if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
           File("${outputFilePath}_tmp.yaml").deleteSync();
         }
       } else {
         // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
-        outputStr += generateHAPartInternal(doc);
+        outputStr += generateHAPartInternal(doc, userName);
       }
       break;
     case 'mapping':
@@ -166,6 +168,7 @@ void mainFunction(List<String> arguments) async {
   String type = "";
   String networkName = "";
   String scriptName = "";
+  String userName = "";
   bool addMetrics = false;
   bool addGenericOutput = true;
 
@@ -180,17 +183,17 @@ void mainFunction(List<String> arguments) async {
       exit(1);
     }
     if (results.wasParsed('version')) {
-      print('$appName version: $version');
+      print("$appName : $version");
       exit(1);
-    }
-    if (results.wasParsed('verbose')) {
-      verbose = true;
     }
     if (results.wasParsed('nogeneric')) {
       addGenericOutput = false;
     }
     if (results.wasParsed('metrics')) {
       addMetrics = true;
+    }
+    if (results.wasParsed('verbose')) {
+      verbose = true;
     }
 
     // fichier "compose"
@@ -231,6 +234,9 @@ void mainFunction(List<String> arguments) async {
     if (results.wasParsed('script')) {
       scriptName = results.option('script')!;
     }
+    if (results.wasParsed('user')) {
+      userName = results.option('user')!;
+    }
 
     // Act on the arguments provided.
     //print('Positional arguments: ${results.rest}');
@@ -265,6 +271,7 @@ void mainFunction(List<String> arguments) async {
         scriptName,
         type,
         networkName,
+        userName,
         addMetrics,
         addGenericOutput,
         true,
@@ -274,7 +281,7 @@ void mainFunction(List<String> arguments) async {
       generateComposeScript(scriptName, outputFilePath, fileList);
     }
   } else {
-    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, addMetrics, addGenericOutput, false);
+    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, userName, addMetrics, addGenericOutput, false);
   }
 }
 

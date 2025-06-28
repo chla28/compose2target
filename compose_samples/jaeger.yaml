@@ -1,0 +1,18 @@
+name: metrics
+services:
+  jaeger:
+    restart: always
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    labels:
+      - metrics: "false"
+    #image: docker.io/jaegertracing/all-in-one:1.60
+    #image: registry.redhat.io/rhosdt/jaeger-all-in-one-rhel8:latest
+    image: asnartifactory.asn.com/docker-local/snng/noapp_images/metrics/jaegeraio:1.60
+    ports:
+      - 14250:14250
+      - 14269:14269
+      - 4317
+      - 4318
+      - 5778:5778
+      - 16686:16686

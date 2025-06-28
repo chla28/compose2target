@@ -1,0 +1,13 @@
+name: metrics
+services:
+  jaeger:
+    restart: always
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - JAEGERPROTO_PORT: 14250
+      - JAEGERTHRIFT_PORT: 14268
+      - ANYONE: 4317
+      - ANYONE: 4318
+      - JAEGERCONFIG_PORT: 5778
+      - JAEGERGUI_PORT: 16686

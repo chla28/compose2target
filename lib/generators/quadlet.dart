@@ -176,6 +176,12 @@ String generateQuadletPartInternal(Map inputData) {
         outputStr += "Exec=$cmd $cmdStr\n";
       }
     }
+    //outputStr += "GlobalArgs=--log-level=debug";
+    //outputStr += "HealthLogDestination=/var/asntraces";
+    outputStr += "LogDriver=k8s-file\n";
+    outputStr += "LogOpt=path=/var/asntraces/$containerName.log\n";
+    outputStr += "LogOpt=max-size=100m\n";
+
     outputStr += "\n";
     outputStr += "[Service]\n";
     // restart: always => Restart=always

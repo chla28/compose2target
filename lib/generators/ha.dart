@@ -1,26 +1,34 @@
 import 'package:compose2target/tools.dart';
 import 'package:yaml/yaml.dart';
 
-String generateHAPartInternal(Map inputData) {
+/*
+  Generates the HAPart internal file based on the input data. 
+  Args:
+    inputData (Map): A YAML map containing the services and their configurations.
+
+  Returns:
+    String: The generated HAPart internal file content as a string.
+*/
+String generateHAPartInternal(Map inputData, String userName) {
   // Get data from inputFile
   YamlMap containersList = inputData['services'];
   // if a key 'name' is present, a pod will be created and the value will be used for the POD name
-  String name = inputData['name'] ?? "";
+  /*String name = inputData['name'] ?? "";
   String podName = "";
   if (name.isNotEmpty) {
     podName = "pod_$name.pod";
-  }
+  }*/
 
   String outputStr = "";
 
   // Each key 'services' present is associated to a container
   containersList.forEach((key, value) {
     String containerName = key;
-    outputStr += "pcs resource create $containerName ocf:other:podmanrootless \n";
-    outputStr += "\timage=\"${containersList[containerName]['image']}\" name=\"$containerName\" \n";
-    outputStr += "\tallow_pull=false reuse=false \n";
+    outputStr += "pcs resource create $containerName ocf:other:podmanrootless user=$userName \\\n";
+    outputStr += "\timage=\"${containersList[containerName]['image']}\" name=\"$containerName\" \\\n";
+    outputStr += "\tallow_pull=false reuse=false \\\n";
 
-    String tmpVolListOutputStr = "";
+    //String tmpVolListOutputStr = "";
     String volListStr = "";
     if (containersList[key]['volumes'] != null) {
       YamlList mountList = containersList[key]['volumes'];
@@ -29,28 +37,29 @@ String generateHAPartInternal(Map inputData) {
           final (localStr, mountStrCont) = extractStrings(value);
           String tmp = checkSpecialVolumes(mountStrCont, true);
           volListStr += "-v $localStr:$tmp ";
-          tmpVolListOutputStr += localStr;
+          //tmpVolListOutputStr += localStr;
         } else {
           String tmp = checkSpecialVolumes(value.values.first, true);
           volListStr += "-v ${value.keys.first}:$tmp ";
-          tmpVolListOutputStr += "${value.keys.first}";
+          //tmpVolListOutputStr += "${value.keys.first}";
         }
-        tmpVolListOutputStr += ",";
+        //tmpVolListOutputStr += ",";
       }
-      outputStr += "\tmount_points=\"$tmpVolListOutputStr\" \n";
+      // mount_points is not needed
+      //outputStr += "\tmount_points=\"$tmpVolListOutputStr\" \\\n";
     }
 
     var cmd2 = containersList[containerName]['command'];
     if (cmd2 != null) {
       String cmd = "";
       if (cmd2 is String) {
-        outputStr += "\trun_cmd=\"$cmd $cmd2\"\n";
+        outputStr += "\trun_cmd=\"$cmd $cmd2\"\\\n";
       } else if (cmd2 is YamlList) {
         String cmdStr = "";
         for (var value in cmd2) {
           cmdStr += " $value";
         }
-        outputStr += "\trun_cmd=\"$cmd $cmdStr\"\n";
+        outputStr += "\trun_cmd=\"$cmd $cmdStr\"\\\n";
       }
     }
     String portListStr = "";
@@ -59,9 +68,15 @@ String generateHAPartInternal(Map inputData) {
       for (var value in portsList) {
         if (value is String) {
           var idx = value.indexOf(":");
-          String portStr = value.substring(0, idx);
-          String portValue = value.substring(idx + 1);
-          portListStr += "-p $portStr:$portValue ";
+          if (idx == -1) {
+            portListStr += "-p $value ";
+          } else {
+            String portStr = value.substring(0, idx);
+            String portValue = value.substring(idx + 1);
+            portListStr += "-p $portStr:$portValue ";
+          }
+        } else if (value is int) {
+          portListStr += "-p $value ";
         } else {
           Map port = value;
           String portStr = "";
@@ -80,10 +95,13 @@ String generateHAPartInternal(Map inputData) {
       for (var value in envList) {
         envListStr += "-e $value ";
       }
+      envListStr = envListStr.replaceAll(RegExp(r'"'), '\\"');
     }
 
-    outputStr += "\trun_opts=\"$portListStr $envListStr $volListStr\" \n";
-    outputStr += "\top monitor timeout=\"30s\" interval=\"30s\" depth=\"0\" \n";
+    String envLogStr = "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m" ;
+
+    outputStr += "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr\" \\\n";
+    outputStr += "\top monitor timeout=\"30s\" interval=\"30s\" \n";
   });
 
   return outputStr;

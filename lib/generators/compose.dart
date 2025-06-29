@@ -307,7 +307,7 @@ esac
 }
 
 // objStr = 'configs' | 'secrets'
-String generateObjectsPartLevel2(String objStr, var configsList, {String tabStr = "$t$t"}) {
+String generateObjectsPartLevel2(String objStr, var configsList, Map mappingData, {String tabStr = "$t$t"}) {
   String outputStr = "";
   outputStr += "$tabStr$objStr:\n";
   if (configsList is YamlMap) {
@@ -316,15 +316,15 @@ String generateObjectsPartLevel2(String objStr, var configsList, {String tabStr 
         if (value.toString() == "{}") {
           outputStr += "$tabStr$t$key: {}\n";
         } else {
-          String foo = "$tabStr$t";
-          outputStr += generateObjectsPartLevel2(key, value, tabStr: foo);
+          String foo = fullMappingOnly("$tabStr$t", mappingData);
+          outputStr += generateObjectsPartLevel2(key, value, mappingData, tabStr: foo);
           /*"$tabStr$key:\n";
           value.forEach((key2, value2) {
             outputStr += "$tabStr$t$key2: $value2\n";
           });*/
         }
       } else {
-        outputStr += "$tabStr$key: $value\n";
+        outputStr += "$tabStr$key: ${fullMappingOnly(value.toString(), mappingData)}\n";
       }
     });
   } else if (configsList is YamlList) {
@@ -334,11 +334,11 @@ String generateObjectsPartLevel2(String objStr, var configsList, {String tabStr 
         value.forEach((key, value2) {
           //String foo = "$tabStr$t";
           //outputStr += generateObjectsPartLevel2(key, value2, mappingData, tabStr: foo);
-          outputStr += "$tabStr$t$first $key: $value2\n";
+          outputStr += "$tabStr$t$first $key: ${fullMappingOnly(value2.toString(), mappingData)}\n";
           first = " ";
         });
       } else {
-        outputStr += "$tabStr$t- $value\n";
+        outputStr += "$tabStr$t- ${fullMappingOnly(value.toString(), mappingData)}\n";
       }
     }
   }
@@ -457,7 +457,7 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     } else {
       var networksList = containersList[containerName]['networks'];
       if (networksList != null) {
-        outputStr += generateObjectsPartLevel2('networks', networksList);
+        outputStr += generateObjectsPartLevel2('networks', networksList, mappingData);
       }
     }
     // Level 2 : depends_on
@@ -501,12 +501,12 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     // Level 2 : configs
     var configsList = containersList[containerName]['configs'];
     if (configsList != null) {
-      outputStr += generateObjectsPartLevel2('configs', configsList);
+      outputStr += generateObjectsPartLevel2('configs', configsList, mappingData);
     }
     // Level 2 : secrets
     var secretsList = containersList[containerName]['secrets'];
     if (secretsList != null) {
-      outputStr += generateObjectsPartLevel2('secrets', secretsList);
+      outputStr += generateObjectsPartLevel2('secrets', secretsList, mappingData);
     }
 
     // Level 2 : working_dir
@@ -518,7 +518,8 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     // Level 2 : security_opt
     var securityOptList = containersList[containerName]['security_opt'];
     if (securityOptList != null) {
-      outputStr += generateObjectsPartLevel2('security_opt', securityOptList);
+      //fullMappingOnly(securityOptList, mappingData);
+      outputStr += generateObjectsPartLevel2('security_opt', securityOptList, mappingData);
     }
     // Level 2 : tmpfs, security_opt, profiles
   });

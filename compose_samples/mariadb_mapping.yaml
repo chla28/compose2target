@@ -17,7 +17,7 @@ services:
         secrets:
             - mariadb-chla-secret
         security_opt:
-            - "label=level:s0:c100,c101"
+            - "label=level:s0:$LABELC100,$LABELC110"
             - "label=filetype:usb_t"
             - "label=type:spc_t"
             - "label=disable"

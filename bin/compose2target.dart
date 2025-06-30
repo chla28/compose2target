@@ -20,7 +20,7 @@ const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet', 'h
 //final pubspec = File('pubspec.yaml').readAsStringSync();
 //final parsed = Pubspec.parse(pubspec);
 
-final String version = "0.1.6"; //parsed.version.toString();
+final String version = "0.1.7"; //parsed.version.toString();
 final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;

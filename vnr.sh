@@ -16,6 +16,7 @@ dart compile exe bin/compose2target.dart -o bin/compose2target
 
 echo "Running compose2target with 'compose' option with mappingfile"
 ./bin/compose2target -i compose_samples/mariadb_mapping.yaml  -t compose -m mapping/mappingFile.yaml -o vnrtmp/mariadb_compose.yaml
+./bin/compose2target -i compose_samples/mariadb_mapping.yaml  -t compose -m mapping/mappingFile.yaml --dev -o vnrtmp/mariadb_compose_dev.yaml
 
 echo "Running compose2target with 'quadlet' option with mappingfile"
 ./bin/compose2target -i compose_samples/mariadb_mapping.yaml  -t quadlet -m mapping/mappingFile.yaml -o vnrtmp/mariadb.container

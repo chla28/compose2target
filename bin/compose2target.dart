@@ -32,6 +32,7 @@ ArgParser buildParser() {
     ..addFlag('version', negatable: false, help: 'Print the tool version.')
     ..addFlag('metrics', negatable: false, help: 'Add metrics parameters in output files')
     ..addFlag('nogeneric', negatable: false, help: "don't add generic output in output files")
+    ..addFlag('dev', negatable: false, help: "Use dev mode")
     ..addOption('input', abbr: 'i', mandatory: false, help: 'Specify YAML file to use in input')
     ..addOption('output', abbr: 'o', mandatory: false, help: 'Specify YAML file to generate')
     ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet|ha')
@@ -57,6 +58,7 @@ Future<String> workOnFile(
   bool addMetrics,
   bool addGenericOutput,
   bool workOnFolder,
+  bool devMode,
 ) async {
   String yamlContent = "";
   String mapFileContent = "";
@@ -82,7 +84,7 @@ Future<String> workOnFile(
   var outputStr = "";
   switch (type) {
     case 'compose':
-      outputStr = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+      outputStr = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
       if (!workOnFolder && outputFilePath.isNotEmpty && scriptName.isNotEmpty) {
         generateComposeScript(scriptName, outputFilePath, null);
       }
@@ -92,7 +94,7 @@ Future<String> workOnFile(
     //  break;
     case 'run':
       if (mapdoc.isNotEmpty) {
-        outputStr = generateRunPartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+        outputStr = generateRunPartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
       } else {
         outputStr = generateRunPartInternalWithoutMapping(doc, networkName, addMetrics, addGenericOutput);
       }
@@ -106,7 +108,7 @@ Future<String> workOnFile(
         if (FileSystemEntity.isFileSync(outputFilePath)) {
           File(outputFilePath).deleteSync();
         }
-        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
         // Generate compose file as intermediate file
         await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
 
@@ -130,7 +132,7 @@ Future<String> workOnFile(
         if (FileSystemEntity.isFileSync(outputFilePath)) {
           File(outputFilePath).deleteSync();
         }
-        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput);
+        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
         // Generate compose file as intermediate file
         await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
 
@@ -171,6 +173,7 @@ void mainFunction(List<String> arguments) async {
   String userName = "";
   bool addMetrics = false;
   bool addGenericOutput = true;
+  bool devMode = false;
 
   final ArgParser argParser = buildParser();
   try {
@@ -194,6 +197,9 @@ void mainFunction(List<String> arguments) async {
     }
     if (results.wasParsed('verbose')) {
       verbose = true;
+    }
+    if (results.wasParsed('dev')) {
+      devMode = true;
     }
 
     // fichier "compose"
@@ -275,13 +281,14 @@ void mainFunction(List<String> arguments) async {
         addMetrics,
         addGenericOutput,
         true,
+        devMode,
       );
     }
     if (outputFilePath.isNotEmpty && scriptName.isNotEmpty) {
       generateComposeScript(scriptName, outputFilePath, fileList);
     }
   } else {
-    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, userName, addMetrics, addGenericOutput, false);
+    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, userName, addMetrics, addGenericOutput, false, devMode);
   }
 }
 

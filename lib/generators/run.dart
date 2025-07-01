@@ -1,7 +1,7 @@
 import 'package:compose2target/tools.dart';
 import 'package:yaml/yaml.dart';
 
-String generateRunPartInternal(Map mappingData, Map inputData, String networkName, bool addMetrics, bool addGenericOutput) {
+String generateRunPartInternal(Map mappingData, Map inputData, String networkName, bool addMetrics, bool addGenericOutput, bool devMode) {
   YamlMap servicesList = mappingData['services'];
   YamlMap variablesList = mappingData['variables'];
   YamlMap containersList = inputData['services'];

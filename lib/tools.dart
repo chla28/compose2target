@@ -69,7 +69,7 @@ String checkSpecialVolumes(String inputString, bool useSELinux) {
     String selinux = (useSELinux) ? ":Z" : "";
     outputStr += "$inputString$selinux";
   } else {
-    if (inputString.endsWith(":Z")) {
+    if (inputString.endsWith(":Z") || inputString.endsWith(":z")) {
       outputStr += inputString;
     } else {
       String selinux = (useSELinux) ? ",Z" : "";

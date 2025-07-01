@@ -2,35 +2,30 @@ name: chla-pod1
 services:
     mariadb-chla:
         container_name: mariadb-chla
-        image: registry.redhat.io/rhel9/mariadb-1011:latest
+        image: registry.redhat.io/rhel9/mariadb-1011:latest  #DevMode only
         labels:
             - description:"Database for demo"
-        restart: always
-        volumes:
-            - /local/data/DB/Chla_DB: /var/lib/mysql/data
+        restart: always #DevMode only
+        volumes: #DevMode only
+            - /local/data/DB/Chla_DB: /var/lib/mysql/data:Z
+        command: [ "sh", "/home/toto/bin/app",  "--config", "/mnt/config/env.conf" ] #DevMode only
         ports:
             - MARIADB_PORT: 3306
         environment:
-            - MYSQL_USER=$MARIADB_USER
-            - MYSQL_PASSWORD="$MARIADB_PASSWORD"
-            - MYSQL_DATABASE="$MARIADB_DATABASE"
+            - MYSQL_USER=usertoto
+            - MYSQL_PASSWORD="totopwd"
+            - MYSQL_DATABASE="devel-db"
         secrets:
             - mariadb-chla-secret
-        security_opt:
-            - "label=level:s0:$LABELC100,$LABELC110"
-            - "label=filetype:usb_t"
-            - "label=type:spc_t"
-            - "label=disable"
-            - "label=nested"
         configs:
             - jhkjhkjhjh
             - yyy
         working_dir: /var/lib/mysql/data
-        deploy:
+        deploy: #DevMode only
             resources:
                 limits:
-                    cpus: 2
-                    memory: 512M
-                reservations:
-                    cpus: '1.5'
+                    cpus: 1
                     memory: 256M
+                reservations:
+                    cpus: '1'
+                    memory: 128M

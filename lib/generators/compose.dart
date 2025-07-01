@@ -345,7 +345,38 @@ String generateObjectsPartLevel2(String objStr, var configsList, Map mappingData
   return outputStr;
 }
 
-String workWithServices(YamlMap containersList, Map mappingData, String network, bool addMetrics, bool addGenericOutput) {
+String workWithVolumes(YamlList? mountList, String containerName, Map servicesList) {
+  String outputStr = "";
+  if (mountList != null) {
+    outputStr += "$t${t}volumes:\n";
+    for (var value in mountList) {
+      if (value is String) {
+        final (ignoreStr, mountStrCont) = extractStrings(value);
+        String retStr = searchMountValue(mountStrCont, containerName, servicesList);
+        if (retStr.isNotEmpty) {
+          String tmp = checkSpecialVolumes(mountStrCont, true);
+          outputStr += "$t$t$t- $retStr:$tmp\n";
+        } else {
+          String tmp = checkSpecialVolumes(value, false);
+          outputStr += "$t$t$t- $tmp\n";
+        }
+      } else {
+        // value is Map
+        String retStr = searchMountValue(value.values.first, containerName, servicesList);
+        if (retStr.isNotEmpty) {
+          String tmp = checkSpecialVolumes(value.values.first, true);
+          outputStr += "$t$t$t- $retStr:$tmp\n";
+        } else {
+          String tmp = checkSpecialVolumes("${value.keys.first}:${value.values.first}", false);
+          outputStr += "$t$t$t- $tmp\n";
+        }
+      }
+    }
+  }
+  return outputStr;
+}
+
+String workWithServices(YamlMap containersList, Map mappingData, String network, bool addMetrics, bool addGenericOutput, bool devMode) {
   // Get data from mappingFile
   YamlMap servicesList = mappingData['services'];
   YamlMap variablesList = mappingData['variables'];
@@ -368,8 +399,10 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     //print("foo:${foo.toString()}");
 
     // Level 2 :
-    var tgtImage = servicesList[containerName];
-    if (tgtImage == null) {
+    //var tgtImage = servicesList[containerName];
+    //if (tgtImage == null && devMode) {
+    if (devMode) {
+      // Get image from inputFile
       outputStr += "$t${t}image: ${fullMappingOnly(containersList[containerName]['image'], mappingData)}\n";
     } else {
       // 'image' id not taken from inputFile but from the mappingFile
@@ -389,42 +422,76 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     outputStr += generateLabelsPart(containerName, labelsGeneric);
 
     // Level 2 :
-    String? restart = containersList[containerName]['restart'];
-    if (restart == null) {
-      outputStr += "$t${t}restart: always\n";
+    if (devMode) {
+      String? restart = containersList[containerName]['restart'];
+      if (restart == null) {
+        outputStr += "$t${t}restart: always\n";
+      } else {
+        outputStr += "$t${t}restart: $restart\n";
+      }
     } else {
-      outputStr += "$t${t}restart: ${containersList[containerName]['restart']}\n";
+      String? restart = servicesList[containerName]['restart'];
+      if (restart == null) {
+        outputStr += "$t${t}restart: always\n";
+      } else {
+        outputStr += "$t${t}restart: $restart\n";
+      }
     }
     /*if (podName.isEmpty) {
       outputStr += "$t${t}userns_mode: keep-id:uid=1000\n"; // Only possible if no pod created
     }*/
 
     // Level 2 : 'command' present in input file is prioritary
-    var cmd = (servicesList[containerName] != null ? servicesList[containerName]['command'] : null);
-    outputStr += generateCommandPart(cmd, variablesList);
-    if (cmd == null) {
-      // No 'command' in input file, search in mappingFile
-      var cmd2 = containersList[containerName]['command'];
-      outputStr += generateCommandPart(cmd2, variablesList);
+    if (devMode) {
+      var cmd = containersList[containerName]['command'];
+      if (cmd == null) {
+        // No 'command' in input file, search in mappingFile
+        var cmd2 = servicesList[containerName]['command'];
+        if (cmd2 != null) {
+          outputStr += generateCommandPart(cmd2, variablesList);
+        }
+      } else {
+        outputStr += generateCommandPart(cmd, variablesList);
+      }
+    } else {
+      // 'command' is taken from mappingFile
+      var cmd = servicesList[containerName]['command'];
+      outputStr += generateCommandPart(cmd, variablesList);
     }
 
     // Level 2 :
     YamlList? portsList = containersList[containerName]['ports'];
+    if (portsList == null) {
+      portsList = servicesList[containerName]['ports'];
+    }
     outputStr += generatePortsPart(portsList, variablesList);
 
     // Level 2 :
-    var envList = containersList[containerName]['environment'];
-    var envList2 = (servicesList[containerName] != null ? servicesList[containerName]['environment'] : null);
     var envGeneric = (genericList != null ? genericList['environment'] : null);
     YamlList? envMetrics = (metricsList != null) ? metricsList['environment'] : null;
     YamlList? envMetricsHttp = (metricsHttpList != null) ? metricsHttpList['environment'] : null;
-    if (envList != null || envList2 != null || envGeneric != null) {
-      outputStr += "$t${t}environment:\n";
+    if (devMode) {
+      var envList = containersList[containerName]['environment'];
+      if (envList != null || envGeneric != null) {
+        outputStr += "$t${t}environment:\n";
+      }
+      outputStr += generateEnvPart(envList, variablesList, containerName);
+    } else {
+      var envList = containersList[containerName]['environment'];
+      var envList2 = servicesList[containerName]['environment'];
+      if (envList != null || envList2 != null || envGeneric != null) {
+        outputStr += "$t${t}environment:\n";
+      }
+      //outputStr += "$t${t}environment:\n";
+      //outputStr += "$t$t$t- PODMAN_USERNS:\"keep-id:uid=1000,gid=1000\"\n";
+      outputStr += generateEnvPart(envList2, variablesList, containerName);
+      outputStr += generateEnvPart(envList, variablesList, containerName);
+      if (envGeneric != null) {
+        for (var value in envGeneric) {
+          outputStr += "$t$t$t- $value\n";
+        }
+      }
     }
-    //outputStr += "$t${t}environment:\n";
-    //outputStr += "$t$t$t- PODMAN_USERNS:\"keep-id:uid=1000,gid=1000\"\n";
-    outputStr += generateEnvPart(envList, variablesList, containerName);
-    outputStr += generateEnvPart(envList2, variablesList, containerName);
     if (envGeneric != null) {
       for (var value in envGeneric) {
         outputStr += "$t$t$t- $value\n";
@@ -445,9 +512,16 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     useMetricsHttpAuthorized = false;
 
     // Level 2 : deploy:
-    YamlMap? deployList = containersList[containerName]['deploy'];
-    if (deployList != null) {
-      outputStr += generateDeployPart(deployList, containerName);
+    if (devMode) {
+      YamlMap? deployList = containersList[containerName]['deploy'];
+      if (deployList != null) {
+        outputStr += generateDeployPart(deployList, containerName);
+      }
+    } else {
+      YamlMap? deployList = servicesList[containerName]['deploy'];
+      if (deployList != null) {
+        outputStr += generateDeployPart(deployList, containerName);
+      }
     }
 
     // Level 2 :
@@ -469,34 +543,10 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
       }
     }
     // Level 2 :
-    if (containersList[containerName]['volumes'] != null) {
-      outputStr += "$t${t}volumes:\n";
-      //containersList[containerName]['volumes'] : volumes declared in yam file
-      //servicesList[containerName]['volumes'] : volumes declared in mapping file
-      YamlList mountList = containersList[containerName]['volumes'];
-      for (var value in mountList) {
-        if (value is String) {
-          final (ignoreStr, mountStrCont) = extractStrings(value);
-          String retStr = searchMountValue(mountStrCont, containerName, servicesList);
-          if (retStr.isNotEmpty) {
-            String tmp = checkSpecialVolumes(mountStrCont, true);
-            outputStr += "$t$t$t- $retStr:$tmp\n";
-          } else {
-            String tmp = checkSpecialVolumes(value, false);
-            outputStr += "$t$t$t- $tmp\n";
-          }
-        } else {
-          // value is Map
-          String retStr = searchMountValue(value.values.first, containerName, servicesList);
-          if (retStr.isNotEmpty) {
-            String tmp = checkSpecialVolumes(value.values.first, true);
-            outputStr += "$t$t$t- $retStr:$tmp\n";
-          } else {
-            String tmp = checkSpecialVolumes("${value.keys.first}:${value.values.first}", false);
-            outputStr += "$t$t$t- $tmp\n";
-          }
-        }
-      }
+    if (devMode) {
+      outputStr += workWithVolumes(containersList[containerName]['volumes'], containerName, servicesList);
+    } else {
+      outputStr += workWithVolumes(servicesList[containerName]['volumes'], containerName, servicesList);
     }
     // Level 2 : configs
     var configsList = containersList[containerName]['configs'];
@@ -516,10 +566,18 @@ String workWithServices(YamlMap containersList, Map mappingData, String network,
     }
 
     // Level 2 : security_opt
-    var securityOptList = containersList[containerName]['security_opt'];
-    if (securityOptList != null) {
-      //fullMappingOnly(securityOptList, mappingData);
-      outputStr += generateObjectsPartLevel2('security_opt', securityOptList, mappingData);
+    if (devMode) {
+      var securityOptList = containersList[containerName]['security_opt'];
+      if (securityOptList != null) {
+        //fullMappingOnly(securityOptList, mappingData);
+        outputStr += generateObjectsPartLevel2('security_opt', securityOptList, mappingData);
+      }
+    } else {
+      var securityOptList = servicesList[containerName]['security_opt'];
+      if (securityOptList != null) {
+        //fullMappingOnly(securityOptList, mappingData);
+        outputStr += generateObjectsPartLevel2('security_opt', securityOptList, mappingData);
+      }
     }
     // Level 2 : tmpfs, security_opt, profiles
   });
@@ -548,7 +606,7 @@ String workWithObjectsPartLevel1(String objStr, YamlMap configsList, {String tab
   return outputStr;
 }
 
-String generateComposePartInternal(Map mappingData, Map inputData, String network, bool addMetrics, bool addGenericOutput) {
+String generateComposePartInternal(Map mappingData, Map inputData, String network, bool addMetrics, bool addGenericOutput, bool devMode) {
   // if a key 'name' is present, a pod will be created and the value will be used for the POD name
   String outputStr = "";
 
@@ -571,7 +629,7 @@ String generateComposePartInternal(Map mappingData, Map inputData, String networ
   // Get data from inputFile
   YamlMap? containersList = inputData['services'];
   if (containersList != null) {
-    outputStr += workWithServices(containersList, mappingData, network, addMetrics, addGenericOutput);
+    outputStr += workWithServices(containersList, mappingData, network, addMetrics, addGenericOutput, devMode);
   }
 
   // Level 0 : Check if field 'volumes' is present

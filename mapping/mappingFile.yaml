@@ -48,11 +48,31 @@ pods:
         - chla2_network
 services:
     mariadb-chla:
-        image: registry.redhat.io/rhel9/mariadb-1011:latest
+        image: registry.redhat.io/rhel9/mariadb-1011_MapFile:latest
         volumes:
-            - /local/data/DB/Chla_DB: /var/lib/mysql/data
-        ports:
-            - MARIADB_PORT:3306
+            - /local/data/DB/Chla_DB_MapFile: /var/lib/mysql/data:z
+        command: [ "sh", "/home/toto/bin/app_MapFile",  "--config", "/mnt/config/env.conf" ]
+        ports: # Used only if not present in inputFile
+            - MARIADB_PORT: 330677
+        restart: always_MapFile
+        environment:
+            - MYSQL_USER=$MARIADB_USER
+            - MYSQL_PASSWORD="$MARIADB_PASSWORD"
+            - MYSQL_DATABASE="$MARIADB_DATABASE"
+        security_opt:
+            - "label=level:s0:$LABELC100,$LABELC110"
+            - "label=filetype:usb_t"
+            - "label=type:spc_t"
+            - "label=disable"
+            - "label=nested"
+        deploy:
+            resources:
+                limits:
+                    cpus: 2
+                    memory: 512M
+                reservations:
+                    cpus: '1.5'
+                    memory: 256M
     redis-db:
         labels:
             - copyright: "CHLA28 property 2025"

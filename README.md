@@ -1,14 +1,26 @@
 # compose2target
 
-This is a tool to convert compose file to target file like a 'podman run' command, a .container (quadlet) file, ...
+A tool to convert a 'podman compose' file to a target file like a 'podman run' command, a .container (quadlet) file, ...
 
-Input file can be a valid compose file or a compose file with an associated mapping file.
+Why this tool ?
 
-compose_file => compose2target => target_file; 'run', 'quadlet', 'k8s', 'helm'
+I've unsuccessfully searched a tool able to generate multiple outputs with only one file (two with mapping).
+**podlet** or **kustomize** are not able to generated a quadlet configuration or pacemaker command for example.
+Perhaps, my needs are very specific...
 
-compose_file_with_variables + mapping_file => compose2target => target_file: 'run', 'compose', 'quadlet', 'k8s', 'helm'
+With compose2target, you need only one valid compose file and the tools will be able to generate a 'run' command, a 'quadlet' file, a 'pcs' command to use with a pacemaker cluster, a 'k8s' file or an 'helm chart'.
 
-any_file_with_variable + mapping_file => compose2target (mapping only option) => varaiables are replaced by their values in mapping_file
++ If you have only one machine for your microservices, you'll use 'quadlet' or 'run' command
++ If you have two machines for your microservices, a pacemaker cluster is a good solution.
++ And if you have three or more machines, you'll use 'kubernetes' for your microservices.
+
+Input can be a valid compose file or a valid compose file with an associated mapping file.
+
++ **compose_file** => **compose2target** => **target_file**
+
++ **compose_file_with_variables + mapping_file** => **compose2target** => **target_file**
+
++ **any_file_with_variable + mapping_file** => **compose2target** (mapping only option) => **output file** with variables replaced by their values present in input mapping_file
 
 > [!IMPORTANT]
 > This tool is still in development and not yet ready for production use.
@@ -16,21 +28,39 @@ any_file_with_variable + mapping_file => compose2target (mapping only option) =>
 > [!IMPORTANT]
 > This tool is not for docker/docker-compose, it's for podman/podman-compose (rootless).
 
+## Mapping file to replace variables in compose file:
+
+Example:
++ In mapping file: **`MARIADB_PORT:"14306"`** and **`DBNAME=chladb`**
++ And in the input compose file: **`MARIADB_PORT: 3306`** and **`MYSQL_DATABSE=$DBNAME`**
+
+In the final/output file:
+
++ Quadlet file: **`PublishPort=14306:3306`** and **`Environment=MYSQL_DATABASE="chladb"`**
++ run command:  **`-p 14306:3306`** and **`-e MYSQL_DATABASE="chladb"`**
++ compose file : **`- "14306:3306"`** and **`MYSQL_DATABASE="chladb"`**
++ pcs command : **`run_opts="-p 14306:3306 ... -e MYSQL_DATABASE=\"chladb\" ...`**
+
 ## Usage
 
 ### Without mapping
 
-    compose2target -i input_file.yaml -t <target> -o output_file.yaml
+```
+compose2target -i input_file.yaml -t <target> -o output_file.yaml
+```
 
 ### With mapping
 
-    compose2target -i input_file.yaml -m mapping_file.yaml -t <target> -o output_file.yaml
+```
+compose2target -i input_file.yaml -m mapping_file.yaml -t <target> -o output_file.yaml
+```
 
 ### Targets list
 
 - **run**: generate a "podman run" command
 - **compose**: generate a "podman-compose" command
 - **quadlet**: generate a "quadlet" container
+- **pcs**: generate a "pcs" command to use in a Pacemaker cluster
 - **k8s**: generate a "kubernetes" container [NOT YET IMPLEMENTED]
 - **helm**: generate a "helm" container [NOT YET IMPLEMENTED]
 

@@ -12,21 +12,32 @@ String generateRunPartInternal(Map mappingData, Map inputData, String networkNam
   containersList.forEach((key, value) {
     String image = servicesList[key]['image'];
 
-    String command = "";
-    if (servicesList[key]['command'] != null) {
-      String foundStr = searchIfVarUsed(servicesList[key]['command'], variablesList);
-      if (foundStr.isNotEmpty) {
-        command = foundStr;
-      } else {
-        command = servicesList[key]['command'].toString();
-      }
-    } else {
-      if (containersList[key]['command'] != null) {
-        String foundStr = searchIfVarUsed(containersList[key]['command'], variablesList);
+    var command = servicesList[key]['command'];
+    if (command != null) {
+      if (command is String) {
+        String foundStr = searchIfVarUsed(command, variablesList);
         if (foundStr.isNotEmpty) {
           command = foundStr;
+        }
+      } else {
+        String foundStr = searchIfVarUsed(convertCommandToStringLine(command), variablesList);
+        if (foundStr.isNotEmpty) {
+          command = foundStr;
+        }
+      }
+    } else {
+      command = containersList[key]['command'];
+      if (command != null) {
+        if (command is String) {
+          String foundStr = searchIfVarUsed(command, variablesList);
+          if (foundStr.isNotEmpty) {
+            command = foundStr;
+          }
         } else {
-          command = containersList[key]['command'].toString();
+          String foundStr = searchIfVarUsed(convertCommandToStringLine(command), variablesList);
+          if (foundStr.isNotEmpty) {
+            command = foundStr;
+          }
         }
       }
     }
@@ -97,15 +108,15 @@ String generateRunPartInternal(Map mappingData, Map inputData, String networkNam
     }
     outputStr += "podman run -d -it --name $key\\\n";
     if (portListStr.isNotEmpty) {
-      outputStr += "    $portListStr \\\n";
+      outputStr += "    $portListStr\\\n";
     }
     if (envListStr.isNotEmpty) {
-      outputStr += "    $envListStr \\\n";
+      outputStr += "    $envListStr\\\n";
     }
     if (volListStr.isNotEmpty) {
-      outputStr += "    $volListStr \\\n";
+      outputStr += "    $volListStr\\\n";
     }
-    outputStr += "    $image $command\n\n";
+    outputStr += "    $image $command\n";
   });
 
   return outputStr;
@@ -171,13 +182,13 @@ String generateRunPartInternalWithoutMapping(Map inputData, String networkName, 
     }
     outputStr += "podman run -d -it --name $key\\\n";
     if (portListStr.isNotEmpty) {
-      outputStr += "    $portListStr \\\n";
+      outputStr += "    $portListStr\\\n";
     }
     if (envListStr.isNotEmpty) {
-      outputStr += "    $envListStr \\\n";
+      outputStr += "    $envListStr\\\n";
     }
     if (volListStr.isNotEmpty) {
-      outputStr += "    $volListStr \\\n";
+      outputStr += "    $volListStr\\\n";
     }
     outputStr += "    $image $command\n\n";
   });

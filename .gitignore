@@ -2,6 +2,9 @@
 # Created by `dart pub`
 .dart_tool/
 .vscode/
+.project
+k8s
+scripts
 bin/compose2target
 vnrtmp/
 localsbom.sbom

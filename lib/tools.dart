@@ -121,8 +121,38 @@ String fullMappingOnly(String yamlContent, Map mappingData) {
   if (variablesList != null) {
     variablesList.forEach((key, value) {
       outputStr = outputStr.replaceAll("\$$key", value.toString());
-      outputStr = outputStr.replaceAll(key, value.toString());
+      //outputStr = outputStr.replaceAll(key, value.toString());
     });
+  }
+  return outputStr;
+}
+
+String convertCommandToString(var cmd) {
+  String outputStr = "";
+  if (cmd is YamlList) {
+    //print("+++$cmd+++");
+    for (var value in cmd) {
+      outputStr += "\"$value\", ";
+    }
+    outputStr = outputStr.substring(0, outputStr.length - 2);
+    //print("---$outputStr---");
+  } else if (cmd is String) {
+    outputStr = cmd;
+  }
+  return outputStr;
+}
+
+String convertCommandToStringLine(var cmd) {
+  String outputStr = "";
+  if (cmd is YamlList) {
+    //print("+++$cmd+++");
+    for (var value in cmd) {
+      outputStr += "$value ";
+    }
+    outputStr = outputStr.substring(0, outputStr.length - 1);
+    //print("---$outputStr---");
+  } else if (cmd is String) {
+    outputStr = cmd;
   }
   return outputStr;
 }

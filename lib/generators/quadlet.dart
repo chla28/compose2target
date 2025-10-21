@@ -109,10 +109,13 @@ String generateQuadletPartInternal(Map inputData) {
 
     outputStr += "[Container]\n";
     // container_name: dbvalkey  => ContainerName=dbvalkey
-    outputStr += "ContainerName=$containerName\n";
     if (podName.isNotEmpty) {
       outputStr += "Pod=$podName\n";
     }
+    outputStr += "ContainerName=$containerName\n";
+    String hostName = containerName.replaceAll("-", "_");
+    outputStr += "HostName=$hostName\n";
+
     // AutoUpdate=registry
     outputStr += "AutoUpdate=registry\n";
     // image: docker.io/valkey/valkey:latest => Image=docker.io/valkey/valkey:latest

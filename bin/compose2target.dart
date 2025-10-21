@@ -5,41 +5,105 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:compose2target/generators/ha.dart';
 import 'package:path/path.dart';
 //import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:yaml/yaml.dart';
 import 'package:compose2target/generators/compose.dart';
 import 'package:compose2target/generators/quadlet.dart';
 import 'package:compose2target/generators/run.dart';
+import 'package:compose2target/generators/ha.dart';
+import 'package:compose2target/generators/helm.dart';
 import 'package:compose2target/tools.dart';
 
 const String t = "  ";
-const List<String> typeList = ['run', 'compose', 'k8s', 'mapping', 'quadlet', 'ha'];
+const List<String> typeList = [
+  'run',
+  'compose',
+  'k8s',
+  'mapping',
+  'quadlet',
+  'ha',
+  'helm',
+];
 
 //final pubspec = File('pubspec.yaml').readAsStringSync();
 //final parsed = Pubspec.parse(pubspec);
 
-final String version = "0.1.7"; //parsed.version.toString();
+final String version = "0.1.9"; //parsed.version.toString();
 final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;
 
 ArgParser buildParser() {
   return ArgParser()
-    ..addFlag('help', abbr: 'h', negatable: false, help: 'Print this usage information.')
-    ..addFlag('verbose', abbr: 'v', negatable: false, help: 'Show additional command output.')
+    ..addFlag(
+      'help',
+      abbr: 'h',
+      negatable: false,
+      help: 'Print this usage information.',
+    )
+    ..addFlag(
+      'verbose',
+      abbr: 'v',
+      negatable: false,
+      help: 'Show additional command output.',
+    )
     ..addFlag('version', negatable: false, help: 'Print the tool version.')
-    ..addFlag('metrics', negatable: false, help: 'Add metrics parameters in output files')
-    ..addFlag('nogeneric', negatable: false, help: "don't add generic output in output files")
+    ..addFlag(
+      'metrics',
+      negatable: false,
+      help: 'Add metrics parameters in output files',
+    )
+    ..addFlag(
+      'nogeneric',
+      negatable: false,
+      help: "don't add generic output in output files",
+    )
+    ..addFlag('nopod', negatable: false, help: "don't add pods in output files")
     ..addFlag('dev', negatable: false, help: "Use dev mode")
-    ..addOption('input', abbr: 'i', mandatory: false, help: 'Specify YAML file to use in input')
-    ..addOption('output', abbr: 'o', mandatory: false, help: 'Specify YAML file to generate')
-    ..addOption('type', abbr: 't', mandatory: false, help: 'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet|ha')
-    ..addOption('mapfile', abbr: 'm', mandatory: false, help: 'Specify mapping file to use')
-    ..addOption('network', abbr: 'n', mandatory: false, help: 'Specify network name')
-    ..addOption('script', abbr: 's', mandatory: false, help: 'Specify script name to generate')
-    ..addOption('user', abbr: 'u', mandatory: false, help: 'Specify user for ha configuration');
+    ..addOption(
+      'input',
+      abbr: 'i',
+      mandatory: false,
+      help: 'Specify YAML file to use in input',
+    )
+    ..addOption(
+      'output',
+      abbr: 'o',
+      mandatory: false,
+      help: 'Specify YAML file to generate',
+    )
+    ..addOption(
+      'type',
+      abbr: 't',
+      mandatory: false,
+      help:
+          'Specify type of YAML file to generate:run|compose|k8s|mapping|quadlet|ha|helm',
+    )
+    ..addOption(
+      'mapfile',
+      abbr: 'm',
+      mandatory: false,
+      help: 'Specify mapping file to use',
+    )
+    ..addOption(
+      'network',
+      abbr: 'n',
+      mandatory: false,
+      help: 'Specify network name',
+    )
+    ..addOption(
+      'script',
+      abbr: 's',
+      mandatory: false,
+      help: 'Specify script name to generate',
+    )
+    ..addOption(
+      'user',
+      abbr: 'u',
+      mandatory: false,
+      help: 'Specify user for ha configuration',
+    );
 }
 
 void printUsage(ArgParser argParser) {
@@ -59,6 +123,7 @@ Future<String> workOnFile(
   bool addGenericOutput,
   bool workOnFolder,
   bool devMode,
+  bool addPodInOutput,
 ) async {
   String yamlContent = "";
   String mapFileContent = "";
@@ -84,81 +149,113 @@ Future<String> workOnFile(
   var outputStr = "";
   switch (type) {
     case 'compose':
-      outputStr = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
+      outputStr = generateComposePartInternal(
+        mapdoc,
+        doc,
+        networkName,
+        addMetrics,
+        addGenericOutput,
+        devMode,
+        addPodInOutput,
+      );
       if (!workOnFolder && outputFilePath.isNotEmpty && scriptName.isNotEmpty) {
         generateComposeScript(scriptName, outputFilePath, null);
-      }
-      break;
-    //case 'rundev':
-    //  outputStr += generateRunPartInternal(type, mapdoc, doc);
-    //  break;
-    case 'run':
-      if (mapdoc.isNotEmpty) {
-        outputStr = generateRunPartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
-      } else {
-        outputStr = generateRunPartInternalWithoutMapping(doc, networkName, addMetrics, addGenericOutput);
-      }
-      break;
-    case 'quadlet':
-      if (mapdoc.isNotEmpty) {
-        //This option is only available if mapping file is present
-        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
-          File("${outputFilePath}_tmp.yaml").deleteSync();
-        }
-        if (FileSystemEntity.isFileSync(outputFilePath)) {
-          File(outputFilePath).deleteSync();
-        }
-        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
-        // Generate compose file as intermediate file
-        await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
-
-        // Now we use the generated compose file as source of quadlet part
-        String yamlContentTemp = "";
-        // Lecture du fichier yaml passé en paramètre, stockage dans une String
-        yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
-        Map docTemp = loadYaml(yamlContentTemp) as Map;
-        outputStr += generateQuadletPartInternal(docTemp);
-      } else {
-        // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
-        outputStr += generateQuadletPartInternal(doc);
-      }
-      break;
-    case 'ha':
-      if (mapdoc.isNotEmpty) {
-        //This option is only available if mapping file is present
-        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
-          File("${outputFilePath}_tmp.yaml").deleteSync();
-        }
-        if (FileSystemEntity.isFileSync(outputFilePath)) {
-          File(outputFilePath).deleteSync();
-        }
-        String outputStrTemp = generateComposePartInternal(mapdoc, doc, networkName, addMetrics, addGenericOutput, devMode);
-        // Generate compose file as intermediate file
-        await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
-
-        // Now we use the generated compose file as source of quadlet part
-        String yamlContentTemp = "";
-        // Lecture du fichier yaml passé en paramètre, stockage dans une String
-        yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
-        Map docTemp = loadYaml(yamlContentTemp) as Map;
-        outputStr += generateHAPartInternal(docTemp, userName);
-        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
-          File("${outputFilePath}_tmp.yaml").deleteSync();
-        }
-      } else {
-        // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
-        outputStr += generateHAPartInternal(doc, userName);
       }
       break;
     case 'mapping':
       outputStr = fullMappingOnly(yamlContent, mapdoc);
       break;
+    case 'run':
+      if (mapdoc.isNotEmpty) {
+        outputStr = generateRunPartInternal(
+          mapdoc,
+          doc,
+          networkName,
+          addMetrics,
+          addGenericOutput,
+          devMode,
+        );
+      } else {
+        outputStr = generateRunPartInternalWithoutMapping(
+          doc,
+          networkName,
+          addMetrics,
+          addGenericOutput,
+        );
+      }
+      break;
+    //case 'rundev':
+    //  outputStr += generateRunPartInternal(type, mapdoc, doc);
+    //  break;
+    default:
+      if (mapdoc.isNotEmpty) {
+        //This option is only available if mapping file is present
+        if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
+          File("${outputFilePath}_tmp.yaml").deleteSync();
+        }
+        if (FileSystemEntity.isFileSync(outputFilePath)) {
+          File(outputFilePath).deleteSync();
+        }
+        String outputStrTemp = generateComposePartInternal(
+          mapdoc,
+          doc,
+          networkName,
+          addMetrics,
+          addGenericOutput,
+          devMode,
+          addPodInOutput,
+        );
+        // Generate compose file as intermediate file
+        await generateOutputFile("${outputFilePath}_tmp.yaml", outputStrTemp);
+
+        // Now we use the generated compose file as source of quadlet part
+        String yamlContentTemp = "";
+        // Lecture du fichier yaml passé en paramètre, stockage dans une String
+        yamlContentTemp = File("${outputFilePath}_tmp.yaml").readAsStringSync();
+        Map docTemp = loadYaml(yamlContentTemp) as Map;
+        switch (type) {
+          case 'k8s':
+            //outputStr += generateK8SPartInternal(docTemp);
+            break;
+          case 'helm':
+            // IMPORTANT: HelmChart will be a tar file with a tree inside containing the full helm chart
+            outputStr += generateHelmChart(docTemp);
+            break;
+          case 'quadlet':
+            outputStr += generateQuadletPartInternal(docTemp);
+            break;
+          case 'ha':
+            outputStr += generateHAPartInternal(docTemp, userName);
+            if (FileSystemEntity.isFileSync("${outputFilePath}_tmp.yaml")) {
+              File("${outputFilePath}_tmp.yaml").deleteSync();
+            }
+            break;
+        }
+      } else {
+        // mapdoc is empty, the input file is supposed to be a valid compose file (no mapping will be done)
+        switch (type) {
+          case 'k8s':
+            //outputStr += generateK8SPartInternal(doc);
+            break;
+          case 'helm':
+            outputStr += generateHelmChart(doc);
+            break;
+          case 'quadlet':
+            outputStr += generateQuadletPartInternal(doc);
+            break;
+          case 'ha':
+            outputStr += generateHAPartInternal(doc, userName);
+            break;
+        }
+      }
   }
   if (outputFilePath.isEmpty) {
     print(outputStr);
   } else {
     generateOutputFile(outputFilePath, outputStr);
-    Future.wait([generateOutputFile(outputFilePath, outputStr)]); //, Future.delayed(Duration(seconds: 2), () => print('Final file created'))]);
+    Future.wait(
+      [generateOutputFile(outputFilePath, outputStr)],
+    ); //, Future.delayed(Duration(seconds: 2), () => print('Final file created'))]);
   }
   return outputStr;
 }
@@ -174,6 +271,7 @@ void mainFunction(List<String> arguments) async {
   bool addMetrics = false;
   bool addGenericOutput = true;
   bool devMode = false;
+  bool addPodInOutput = true;
 
   final ArgParser argParser = buildParser();
   try {
@@ -192,6 +290,10 @@ void mainFunction(List<String> arguments) async {
     if (results.wasParsed('nogeneric')) {
       addGenericOutput = false;
     }
+    if (results.wasParsed('nopod')) {
+      addPodInOutput = false;
+    }
+
     if (results.wasParsed('metrics')) {
       addMetrics = true;
     }
@@ -282,13 +384,27 @@ void mainFunction(List<String> arguments) async {
         addGenericOutput,
         true,
         devMode,
+        addPodInOutput,
       );
     }
     if (outputFilePath.isNotEmpty && scriptName.isNotEmpty) {
       generateComposeScript(scriptName, outputFilePath, fileList);
     }
   } else {
-    workOnFile(sourcePathOrYaml, mapFilePath, outputFilePath, scriptName, type, networkName, userName, addMetrics, addGenericOutput, false, devMode);
+    workOnFile(
+      sourcePathOrYaml,
+      mapFilePath,
+      outputFilePath,
+      scriptName,
+      type,
+      networkName,
+      userName,
+      addMetrics,
+      addGenericOutput,
+      false,
+      devMode,
+      addPodInOutput,
+    );
   }
 }
 

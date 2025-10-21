@@ -5,6 +5,8 @@ services:
         image: registry.redhat.io/rhel9/mariadb-1011:latest
         labels:
             - description:"Database for demo"
+        annotations:
+            - c2t.helm.type:"Service"
         restart: always
         volumes:
             - /local/data/DB/Chla_DB: /var/lib/mysql/data

@@ -6,8 +6,12 @@ services:
         labels:
             - description:"Database for demo"
         annotations:
-            - c2t.ha.startcmd.delay="30s"
-            - c2t.ha.monitorcmd.delay="30s"
+            # will generate in pcs command: op start timeout="30s" start-delay="30s"
+            - c2t.ha.start="timeout=\"30s\" start-delay=\"30s\""
+            # will generate in pcs command: op monitor interval="40s" timeout="60s" start-delay="40s"
+            - c2t.ha.monitor="interval=\"40\" timeout=\"60s\" start-delay=\"40s\""
+            # will generate in pcs command: op stop timeout="60s"
+            - c2t.ha.stop="timeout=\"60s\""
         restart: always #DevMode only
         volumes: #DevMode only
             - /local/data/DB/Chla_DB: /var/lib/mysql/data:Z

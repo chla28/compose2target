@@ -24,8 +24,10 @@ String generateHAPartInternal(Map inputData, String userName) {
   // Each key 'services' present is associated to a container
   containersList.forEach((key, value) {
     String containerName = key;
-    outputStr += "pcs resource create $containerName ocf:other:podmanrootless user=$userName \\\n";
-    outputStr += "\timage=\"${containersList[containerName]['image']}\" name=\"$containerName\" \\\n";
+    outputStr +=
+        "pcs resource create $containerName ocf:other:podmanrootless user=$userName \\\n";
+    outputStr +=
+        "\timage=\"${containersList[containerName]['image']}\" name=\"$containerName\" \\\n";
     outputStr += "\tallow_pull=false reuse=false \\\n";
 
     //String tmpVolListOutputStr = "";
@@ -109,10 +111,45 @@ String generateHAPartInternal(Map inputData, String userName) {
       envSecuListStr = envSecuListStr.replaceAll(RegExp(r'"'), '\\"');
     }
 
-    String envLogStr = "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m";
+    String envLogStr =
+        "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m";
 
-    outputStr += "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr $envSecuListStr\" \\\n";
-    outputStr += "\top monitor timeout=\"30s\" interval=\"30s\" \n";
+    outputStr +=
+        "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr $envSecuListStr\" \\\n";
+
+    String annotationsListStr = "";
+    if (containersList[key]['annotations'] != null) {
+      YamlList annotationsList = containersList[key]['annotations'];
+      for (var value in annotationsList) {
+        if (value is String) {
+          String optionsStr = "";
+          var idx = value.indexOf("=");
+          if (value.startsWith("c2t.ha.start=") && idx != -1) {
+            optionsStr = value.substring(idx + 2, value.length - 1);
+            annotationsListStr += "\top start $optionsStr \\\n";
+          }
+          if (value.startsWith("c2t.ha.stop=") && idx != -1) {
+            optionsStr = value.substring(idx + 2, value.length - 1);
+            annotationsListStr += "\top stop $optionsStr \\\n";
+          }
+          if (value.startsWith("c2t.ha.monitor=") && idx != -1) {
+            optionsStr = value.substring(idx + 2, value.length - 1);
+            annotationsListStr += "\top monitor $optionsStr \\\n";
+          }
+          if (value.startsWith("c2t.ha.monitorcmd=") && idx != -1) {
+            optionsStr = value.substring(idx + 2, value.length - 1);
+            annotationsListStr += "\tmonitor_cmd=$optionsStr \\\n";
+          }
+        }
+      }
+      //annotationsListStr = annotationsListStr.replaceAll(RegExp(r'"'), '\\"');
+    }
+    outputStr += annotationsListStr;
+    // Replace last "\\\n" in the outputStr vu "\n"
+    if (outputStr.length > 2) {
+      outputStr = "${outputStr.substring(0, outputStr.length - 2)}\n";
+    }
+    //outputStr += "\top monitor timeout=\"30s\" interval=\"30s\" start-delay=\"30s\" \n";
   });
 
   return outputStr;

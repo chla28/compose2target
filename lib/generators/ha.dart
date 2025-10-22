@@ -140,6 +140,10 @@ String generateHAPartInternal(Map inputData, String userName) {
             optionsStr = value.substring(idx + 2, value.length - 1);
             annotationsListStr += "\tmonitor_cmd=$optionsStr \\\n";
           }
+          if (value.startsWith("c2t.ha.meta=") && idx != -1) {
+            optionsStr = value.substring(idx + 2, value.length - 1);
+            annotationsListStr += "\tmeta $optionsStr \\\n";
+          }
         }
       }
       //annotationsListStr = annotationsListStr.replaceAll(RegExp(r'"'), '\\"');

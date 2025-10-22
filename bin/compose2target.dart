@@ -29,7 +29,7 @@ const List<String> typeList = [
 //final pubspec = File('pubspec.yaml').readAsStringSync();
 //final parsed = Pubspec.parse(pubspec);
 
-final String version = "0.2.0"; //parsed.version.toString();
+final String version = "0.2.1"; //parsed.version.toString();
 final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;

@@ -1,6 +1,6 @@
 name: compose2target
 description: Compose to run/quadlet/... application
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/chla28/compose2target
 
 environment:

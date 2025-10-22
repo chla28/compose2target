@@ -15,6 +15,7 @@ services:
             - c2t.ha.stop="timeout=60s"
             # monitor_cmd parameter with pcs command
             - c2t.ha.monitorcmd="/mnt/checkStatus.sh"
+            - c2t.ha.meta='target-role="Started"'
         restart: always #DevMode only
         volumes: #DevMode only
             - /local/data/DB/Chla_DB: /var/lib/mysql/data:Z

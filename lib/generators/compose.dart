@@ -767,7 +767,7 @@ String generateComposePartInternal(
     outputStr += workWithObjectsPartLevel1('networks', networksList);
   } else {
     // Level 0 : Generate 'network' section if needed
-    outputStr += generateNetworksPart('compose', network);
+    outputStr += generateNetworksPart(network);
   }
 
   // Level 0 : Check if field 'service' is present

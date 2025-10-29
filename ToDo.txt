@@ -1,0 +1,48 @@
+Compose options to add                      Podman run                                  Podman Quadlet
+
+    cap_add:                                --cap-add CAP_DAC_OVERRIDE                  AddCapability=CAP_DAC_OVERRIDE CAP_IPC_OWNER
+        - CAP_DAC_OVERRIDE                  --cap-add CAP_IPC_OWNER
+        - CAP_IPC_OWNER
+
+    cap_drop:                               --cap-drop NET_ADMIN                        DropCapability=CAP_DAC_OVERRIDE CAP_IPC_OWNER
+        - NET_ADMIN                         --cap-drop SYS_ADMIN
+        - SYS_ADMIN
+
+    cgroup: host | private | "unset"        ???                                         ???
+
+                                            --expose                                    ExposedHostport=
+                                            --gidmap                                    GIDMap=
+                                            --group-add=keep-groups                     GroupAdd=keep-groups
+
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost"]   --health-cmd=/usr/bin/command               HealthCmd=/usr/bin/command
+  interval: 1m30s                                   --health-interval=2m                        HealthInterval=2m
+  timeout: 10s                                      --health-timeout=20s                        HealthTimeout=20s
+  retries: 3                                        --health-retries=5                          HealthRetries=5
+  start_period: 40s                                 --health-start-period=period=1m             HealthStartPeriod=1m
+  start_interval: 5s                                --health-startup-interval=1m                HealthStartupInterval=1m
+                                            --health-log-destination=/foo/log           HealthLogDestination=/foo/log
+                                            --health-max-log-count=5                    HealthMaxLogCount=5
+                                            --health-max-log-size=500                   HealthMaxLogSize=500
+                                            ...
+
+
+QUADLET uniquement:
+-------------------
+
+CgroupsMode = split avec quadlet par défaut
+            = enabled avec le CLI Podman
+    Si le container est dans un pod (Pod=) alors le positionner à no-conmon ou enabled
+
+DNS= DNSOption= DNSSearch= à regarder
+
+EnvironmentFile=
+EnvironmentHost=
+
+
+A REGARDER:
+===========
+
+Quadlet .network
+----------------
+    IPAMDriver= host-local | dhcp | none

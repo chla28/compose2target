@@ -16,6 +16,12 @@ services:
             # monitor_cmd parameter with pcs command
             - c2t.ha.monitorcmd="/mnt/checkStatus.sh"
             - c2t.ha.meta='target-role="Started"'
+            - c2t.quadlet.requires="keycloak.service"
+            - c2t.quadlet.wants="keycloak.service"
+            - c2t.quadlet.after="foo.service"
+            - c2t.quadlet.before="pasfoo.service"
+            - c2t.quadlet.timeoutstartsec=60
+            - c2t.quadlet.execstartpre=bin/foo.sh waitForKeycloak
         restart: always #DevMode only
         volumes: #DevMode only
             - /local/data/DB/Chla_DB: /var/lib/mysql/data:Z
@@ -36,3 +42,5 @@ services:
                 reservations:
                     cpus: '1'
                     memory: 128M
+        depends_on:
+            - redis_db

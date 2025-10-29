@@ -29,7 +29,7 @@ const List<String> typeList = [
 //final pubspec = File('pubspec.yaml').readAsStringSync();
 //final parsed = Pubspec.parse(pubspec);
 
-final String version = "0.2.1"; //parsed.version.toString();
+final String version = "0.2.3"; //parsed.version.toString();
 final String appName = "compose2target"; //parsed.name;
 
 bool workOnFolder = false;
@@ -281,11 +281,11 @@ void mainFunction(List<String> arguments) async {
     // Process the parsed arguments.
     if (results.wasParsed('help')) {
       printUsage(argParser);
-      exit(1);
+      exit(0);
     }
     if (results.wasParsed('version')) {
       print("$appName : $version");
-      exit(1);
+      exit(0);
     }
     if (results.wasParsed('nogeneric')) {
       addGenericOutput = false;

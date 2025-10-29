@@ -37,15 +37,25 @@ String generatePortsPartForQuadlet(value) {
     // "3030"
     RegExp singlePort = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))$');
     // "3000-3050"
-    RegExp rangePort = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$');
+    RegExp rangePort = RegExp(
+      r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$',
+    );
     // "8000:8000"
-    RegExp portMapping = RegExp(r'^(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$');
+    RegExp portMapping = RegExp(
+      r'^(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$',
+    );
     // "3000-3050:4000-4050"
-    RegExp portRangeMapping = RegExp(r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$');
+    RegExp portRangeMapping = RegExp(
+      r'^(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))-(?:-?(?:0|[1-9][0-9]*))$',
+    );
     // "127.0.0.1:8000:8000"
-    RegExp ipMapping = RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$');
+    RegExp ipMapping = RegExp(
+      r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))$',
+    );
     // "127.0.0.1:8000:8000/udp"
-    RegExp ipMappingProtocol = RegExp(r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))/(udp|tcp)$');
+    RegExp ipMappingProtocol = RegExp(
+      r'^(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d)\.(\d?\d?\d):(?:-?(?:0|[1-9][0-9]*)):(?:-?(?:0|[1-9][0-9]*))/(udp|tcp)$',
+    );
 
     if (singlePort.hasMatch(value)) {
       //print("single port found        : $value");
@@ -96,15 +106,46 @@ String generateQuadletPartInternal(Map inputData) {
     String containerName = key;
     outputStr += "[Unit]\n";
     outputStr += "Description=$containerName\n";
-    YamlList? dependsList = containersList[containerName]['depends_on'];
-    if (dependsList != null) {
-      String depListStr = "";
-      for (var value in dependsList) {
-        depListStr += "$value.service ";
+
+    String annotationsListStrDep = "";
+    if (containersList[key]['annotations'] != null) {
+      YamlList annotationsList = containersList[key]['annotations'];
+      for (var value in annotationsList) {
+        if (value is String) {
+          String optionsStr = "";
+          var idx = value.indexOf("=");
+          if (value.startsWith("c2t.quadlet.before=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStrDep += "Before=$optionsStr\n";
+          }
+          if (value.startsWith("c2t.quadlet.after=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStrDep += "After=$optionsStr\n";
+          }
+          if (value.startsWith("c2t.quadlet.requires=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStrDep += "Requires=$optionsStr\n";
+          }
+          if (value.startsWith("c2t.quadlet.wants=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStrDep += "Wants=$optionsStr\n";
+          }
+        }
       }
-      outputStr += "Requires=$depListStr\n";
-      outputStr += "After=$depListStr\n";
     }
+    outputStr += annotationsListStrDep;
+    if (annotationsListStrDep.isEmpty) {
+      YamlList? dependsList = containersList[containerName]['depends_on'];
+      if (dependsList != null) {
+        String depListStr = "";
+        for (var value in dependsList) {
+          depListStr += "$value.service ";
+        }
+        outputStr += "Requires=$depListStr\n";
+        outputStr += "After=$depListStr\n";
+      }
+    }
+
     outputStr += "\n";
 
     outputStr += "[Container]\n";
@@ -222,6 +263,26 @@ String generateQuadletPartInternal(Map inputData) {
     outputStr += "MemorySwapMax=0\n";
     //outputStr += "ManageOOMSwap=kill\n";
 
+    String annotationsListStr = "";
+    if (containersList[key]['annotations'] != null) {
+      YamlList annotationsList = containersList[key]['annotations'];
+      for (var value in annotationsList) {
+        if (value is String) {
+          String optionsStr = "";
+          var idx = value.indexOf("=");
+          if (value.startsWith("c2t.quadlet.timeoutstartsec=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStr += "TimeoutStartSec=$optionsStr\n";
+          }
+          if (value.startsWith("c2t.quadlet.execstartpre=") && idx != -1) {
+            optionsStr = value.substring(idx + 1, value.length);
+            annotationsListStr += "ExecStartPre=$optionsStr\n";
+          }
+        }
+      }
+    }
+    outputStr += annotationsListStr;
+
     YamlMap? deployMap = containersList[containerName]['deploy'];
     if (deployMap != null) {
       for (var item in deployMap.keys) {
@@ -266,7 +327,8 @@ String generateQuadletPartInternal(Map inputData) {
                             break;
                           case "memory":
                             // manage memory
-                            outputStr += "MemoryMin=${reservationsMap[item3]}\n";
+                            outputStr +=
+                                "MemoryMin=${reservationsMap[item3]}\n";
                             break;
                         }
                       }

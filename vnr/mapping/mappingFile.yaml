@@ -67,6 +67,14 @@ services:
             - "label=type:spc_t"
             - "label=disable"
             - "label=nested"
+        logging:
+            driver: k8s-file
+            options:
+                max-size: 20m
+                max-file: 3
+                path: ${DEFAULTLOGPATH}/name.log
+                labels: "production_status"
+                env: "os,customer"
         deploy:
             resources:
                 limits:

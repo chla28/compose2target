@@ -24,6 +24,7 @@ echo "Running compose2target with mappingfile but NOPOD"
 ../bin/compose2target -i compose_samples/mariadb_mapping.yaml   -t compose --nopod  -m mapping/mappingFile.yaml       -o vnrtmp/nopod/mariadb_compose.yaml
 ../bin/compose2target -i compose_samples/mariadb_mapping.yaml   -t quadlet --nopod  -m mapping/mappingFile.yaml       -o vnrtmp/nopod/mariadb.container
 ../bin/compose2target -i compose_samples/mariadb_mapping.yaml   -t ha      --nopod  -m mapping/mappingFile.yaml       -o vnrtmp/nopod/mariadb_mapping_ha.pcs        --user ansuser
+../bin/compose2target -i compose_samples/mariadb_mapping.yaml   -t compose -n mynetwork  -m mapping/mappingFile.yaml       -o vnrtmp/nopod/mariadb.compose
 
 echo "Running compose2target with 'run' option with mappingfile"
 ../bin/compose2target -i compose_samples/mariadb_mapping.yaml   -t run      -m mapping/mappingFile.yaml       -o vnrtmp/run/mariadb_mapping_run.yaml

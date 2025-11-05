@@ -248,11 +248,43 @@ String generateQuadletPartInternal(Map inputData) {
     }
     //outputStr += "GlobalArgs=--log-level=debug";
     //outputStr += "HealthLogDestination=/var/asntraces";
-    outputStr += "LogDriver=k8s-file\n";
-    outputStr += "LogOpt=path=/var/asntraces/$containerName.log\n";
-    outputStr += "LogOpt=max-size=100m\n";
+    //outputStr += "LogDriver=k8s-file\n";
+    //outputStr += "LogOpt=path=/var/asntraces/$containerName.log\n";
+    //outputStr += "LogOpt=max-size=100m\n";
 
+    YamlMap? loggingMap = containersList[containerName]['logging'];
+    if (loggingMap != null) {
+      for (var item in loggingMap.keys) {
+        switch (item) {
+          case "driver":
+            outputStr += "LogDriver=${loggingMap[item]}\n";
+            break;
+          case "options":
+            // manage options
+            YamlMap? optionsMap = loggingMap[item];
+            if (optionsMap != null) {
+              for (var item2 in optionsMap.keys) {
+                outputStr += "LogOpt=${item2}=${optionsMap[item2]}\n";
+                /*switch (item2) {
+                  case "max-size":
+                    outputStr += "LogOpt=max-size=${optionsMap[item2]}\n";
+                    break;
+                  case "max-file":
+                    outputStr += "LogOpt=max-file=${optionsMap[item2]}\n";
+                    break;
+                  case "path":
+                    outputStr += "LogOpt=path=${optionsMap[item2]}\n";
+                    break;
+                }*/
+              }
+            }
+            break;
+          default:
+        }
+      }
+    }
     outputStr += "\n";
+
     outputStr += "[Service]\n";
     // restart: always => Restart=always
     outputStr += "Restart=${containersList[containerName]['restart']}\n";

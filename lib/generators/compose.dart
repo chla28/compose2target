@@ -5,6 +5,39 @@ import 'package:yaml/yaml.dart';
 bool useMetricsAuthorized = false;
 bool useMetricsHttpAuthorized = false;
 
+String generateLoggingPart(YamlMap? deployList, String containerName) {
+  String outputStr = "";
+  /*
+    logging:
+      driver: k8s-file
+      options:
+        max-size: 20m
+        max-file: 3
+        path: ${DEFAULTLOGPATH}/name.log
+  */
+  outputStr += "$t${t}logging:\n";
+  if (deployList != null) {
+    deployList.forEach((key, value) {
+      if (value is YamlMap) {
+        outputStr += "$t$t$t$key:\n";
+        value.forEach((reskey, resvalue) {
+          if (resvalue is YamlMap) {
+            outputStr += "$t$t$t$t$reskey:\n";
+            resvalue.forEach((itemkey, itemvalue) {
+              outputStr += "$t$t$t$t$t$itemkey: \"$itemvalue\"\n";
+            });
+          } else {
+            outputStr += "$t$t$t$t$reskey: \"$resvalue\"\n";
+          }
+        });
+      } else {
+        outputStr += "$t$t$t$key: \"$value\"\n";
+      }
+    });
+  }
+  return outputStr;
+}
+
 String generateDeployPart(YamlMap? deployList, String containerName) {
   String outputStr = "";
   /*
@@ -624,6 +657,19 @@ String workWithServices(
       YamlMap? deployList = servicesList[containerName]['deploy'];
       if (deployList != null) {
         outputStr += generateDeployPart(deployList, containerName);
+      }
+    }
+
+    // Level 2 : logging:
+    if (devMode) {
+      YamlMap? loggingList = containersList[containerName]['logging'];
+      if (loggingList != null) {
+        outputStr += generateLoggingPart(loggingList, containerName);
+      }
+    } else {
+      YamlMap? loggingList = servicesList[containerName]['logging'];
+      if (loggingList != null) {
+        outputStr += generateLoggingPart(loggingList, containerName);
       }
     }
 

@@ -544,17 +544,9 @@ String workWithServices(
     variablesList2['SERVICENAME'] = containerName;
 
     // Level 2 :
-    //var tgtImage = servicesList[containerName];
-    //if (tgtImage == null && devMode) {
-    if (devMode) {
-      // Get image from inputFile
-      outputStr +=
-          "$t${t}image: ${fullMappingOnly(containersList[containerName]['image'], mappingData)}\n";
-    } else {
-      // 'image' id not taken from inputFile but from the mappingFile
-      outputStr +=
-          "$t${t}image: ${fullMappingOnly(servicesList[containerName]['image'], mappingData)}\n";
-    }
+    outputStr += (devMode)
+        ? "$t${t}image: ${fullMappingOnly(containersList[containerName]['image'], mappingData)}\n"
+        : "$t${t}image: ${fullMappingOnly(servicesList[containerName]['image'], mappingData)}\n";
 
     // Level 2 : Searching 'labels:' field in inputfile
     var labelsList = value['labels'];
@@ -685,15 +677,28 @@ String workWithServices(
     useMetricsHttpAuthorized = false;
 
     // Level 2 : deploy:
-    YamlMap? deployList = (devMode) ? containersList[containerName]['deploy'] : servicesList[containerName]['deploy'];
+    YamlMap? deployList = (devMode)
+        ? containersList[containerName]['deploy']
+        : servicesList[containerName]['deploy'];
     if (deployList != null) {
-      outputStr += generateDeployPart( deployList, variablesList2, containerName );
+      outputStr += generateDeployPart(
+        deployList,
+        variablesList2,
+        containerName,
+      );
     }
 
     // Level 2 : logging:
-    YamlMap? loggingList = (devMode) ? containersList[containerName]['logging'] : servicesList[containerName]['logging'];
-      if (loggingList != null) {
-        outputStr += generateLoggingPart( loggingList, variablesList2, containerName );
+    YamlMap? loggingList = (devMode)
+        ? containersList[containerName]['logging']
+        : servicesList[containerName]['logging'];
+    if (loggingList != null) {
+      outputStr += generateLoggingPart(
+        loggingList,
+        variablesList2,
+        containerName,
+      );
+    }
 
     // Level 2 :
     if (network.isNotEmpty) {
@@ -702,7 +707,11 @@ String workWithServices(
     } else {
       var networksList = containersList[containerName]['networks'];
       if (networksList != null) {
-        outputStr += generateObjectsPartLevel2( 'networks', networksList, mappingData );
+        outputStr += generateObjectsPartLevel2(
+          'networks',
+          networksList,
+          mappingData,
+        );
       }
     }
     // Level 2 : depends_on

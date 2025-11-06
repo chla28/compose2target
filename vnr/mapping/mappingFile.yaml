@@ -23,9 +23,23 @@ variables:
     LABELC100:          "c100"
     LABELC110:          "c110"
     LABELC120:          "c120"
+    LOGDRIVER:          "k8s-file"
+    LOGMAXFILE:         "4"
+    LOGMAXSIZE:         "30m"
+    LOGPATH:            "${DEFAULTLOGPATH}/name.log"
+    SERVMAXMEMORY:      "1024m"
 genericoutput: #  Options added to all containers
     labels:
         - comment= "Chla Configuration"
+    #logging:
+    #    driver: $LOGDRIVER
+    #    options:
+    #        max-size: $LOGMAXSIZE
+    #        max-file: $LOGMAXFILE
+    #        #path: $LOGPATH
+    #        path:  "${DEFAULTLOGPATH}/$SERVICENAME.log"
+    #        labels: "production_status"
+    #        env: "os,customer"
     #environment:
         #- PODMAN_USERNS="keep-id:uid=1000,gid=1000"
 networks:
@@ -68,18 +82,19 @@ services:
             - "label=disable"
             - "label=nested"
         logging:
-            driver: k8s-file
+            driver: $LOGDRIVER
             options:
-                max-size: 20m
-                max-file: 3
-                path: ${DEFAULTLOGPATH}/name.log
+                max-size: $LOGMAXSIZE
+                max-file: $LOGMAXFILE
+                #path: $LOGPATH
+                path:  "${DEFAULTLOGPATH}/$SERVICENAME.log"
                 labels: "production_status"
                 env: "os,customer"
         deploy:
             resources:
                 limits:
                     cpus: 2
-                    memory: 512M
+                    memory: $SERVMAXMEMORY
                 reservations:
                     cpus: '1.5'
                     memory: 256M

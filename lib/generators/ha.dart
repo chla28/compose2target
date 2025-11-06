@@ -18,7 +18,6 @@ String generateHAPartInternal(Map inputData, String userName) {
   if (name.isNotEmpty) {
     podName = "pod_$name.pod";
   }*/
-
   String outputStr = "";
 
   // Each key 'services' present is associated to a container
@@ -111,9 +110,30 @@ String generateHAPartInternal(Map inputData, String userName) {
       envSecuListStr = envSecuListStr.replaceAll(RegExp(r'"'), '\\"');
     }
 
-    String envLogStr =
-        "--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m";
-
+    String envLogStr = "";
+    if (containersList[key]['logging'] != null) {
+      YamlMap? loggingMap = containersList[key]['logging'];
+      //"--log-driver k8s-file --log-opt path=/var/asntraces/$containerName.log --log-opt max-size=100m";
+      if (loggingMap != null) {
+        for (var item in loggingMap.keys) {
+          switch (item) {
+            case "driver":
+              envLogStr += " --log-driver \"${loggingMap[item]}\"";
+              break;
+            case "options":
+              // manage options
+              YamlMap? optionsMap = loggingMap[item];
+              if (optionsMap != null) {
+                for (var item2 in optionsMap.keys) {
+                  envLogStr += " --log-opt ${item2}=\"${optionsMap[item2]}\"";
+                }
+              }
+              break;
+            default:
+          }
+        }
+      }
+    }
     outputStr +=
         "\trun_opts=\"$portListStr $envLogStr $envListStr $volListStr $envSecuListStr\" \\\n";
 

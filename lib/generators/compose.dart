@@ -5,7 +5,11 @@ import 'package:yaml/yaml.dart';
 bool useMetricsAuthorized = false;
 bool useMetricsHttpAuthorized = false;
 
-String generateLoggingPart(YamlMap? deployList, String containerName) {
+String generateLoggingPart(
+  YamlMap? logList,
+  Map variablesList2,
+  String containerName,
+) {
   String outputStr = "";
   /*
     logging:
@@ -16,29 +20,44 @@ String generateLoggingPart(YamlMap? deployList, String containerName) {
         path: ${DEFAULTLOGPATH}/name.log
   */
   outputStr += "$t${t}logging:\n";
-  if (deployList != null) {
-    deployList.forEach((key, value) {
+  if (logList != null) {
+    logList.forEach((key, value) {
       if (value is YamlMap) {
+        //print("key=$key\n");
         outputStr += "$t$t$t$key:\n";
         value.forEach((reskey, resvalue) {
-          if (resvalue is YamlMap) {
-            outputStr += "$t$t$t$t$reskey:\n";
-            resvalue.forEach((itemkey, itemvalue) {
-              outputStr += "$t$t$t$t$t$itemkey: \"$itemvalue\"\n";
-            });
+          String foundStr = searchIfVarUsed(
+            resvalue.toString(),
+            variablesList2,
+          );
+          if (foundStr.isNotEmpty) {
+            //print("____ $reskey: \"$foundStr\"\n");
+            outputStr += "$t$t$t$t$reskey: \"$foundStr\"\n";
           } else {
+            //print("____ $reskey: \"$resvalue\"\n");
             outputStr += "$t$t$t$t$reskey: \"$resvalue\"\n";
           }
         });
       } else {
-        outputStr += "$t$t$t$key: \"$value\"\n";
+        String foundStr = searchIfVarUsed(value.toString(), variablesList2);
+        if (foundStr.isNotEmpty) {
+          //print("++++2 $key: \"$foundStr\"\n");
+          outputStr += "$t$t$t$key: \"$foundStr\"\n";
+        } else {
+          //print("++++ $key: \"$value\"\n");
+          outputStr += "$t$t$t$key: \"$value\"\n";
+        }
       }
     });
   }
   return outputStr;
 }
 
-String generateDeployPart(YamlMap? deployList, String containerName) {
+String generateDeployPart(
+  YamlMap? deployList,
+  Map variablesList2,
+  String containerName,
+) {
   String outputStr = "";
   /*
     deploy:
@@ -59,14 +78,35 @@ String generateDeployPart(YamlMap? deployList, String containerName) {
           if (resvalue is YamlMap) {
             outputStr += "$t$t$t$t$reskey:\n";
             resvalue.forEach((itemkey, itemvalue) {
-              outputStr += "$t$t$t$t$t$itemkey: \"$itemvalue\"\n";
+              String foundStr = searchIfVarUsed(
+                itemvalue.toString(),
+                variablesList2,
+              );
+              if (foundStr.isNotEmpty) {
+                outputStr += "$t$t$t$t$t$itemkey: \"$foundStr\"\n";
+              } else {
+                outputStr += "$t$t$t$t$t$itemkey: \"$itemvalue\"\n";
+              }
             });
           } else {
-            outputStr += "$t$t$t$t$reskey: \"$resvalue\"\n";
+            String foundStr = searchIfVarUsed(
+              resvalue.toString(),
+              variablesList2,
+            );
+            if (foundStr.isNotEmpty) {
+              outputStr += "$t$t$t$t$key: \"$foundStr\"\n";
+            } else {
+              outputStr += "$t$t$t$t$reskey: \"$resvalue\"\n";
+            }
           }
         });
       } else {
-        outputStr += "$t$t$t$key: \"$value\"\n";
+        String foundStr = searchIfVarUsed(value.toString(), variablesList2);
+        if (foundStr.isNotEmpty) {
+          outputStr += "$t$t$t$key: \"$foundStr\"\n";
+        } else {
+          outputStr += "$t$t$t$key: \"$value\"\n";
+        }
       }
     });
   }
@@ -146,15 +186,9 @@ String generateAnnotationsPart(String containerName, var annotationsList) {
   return outputStr;
 }
 
-String generateEnvPart(
-  var envList,
-  YamlMap variablesList,
-  String containerName,
-) {
+String generateEnvPart(var envList, Map variablesList2, String containerName) {
   String outputStr = "";
-  Map variablesList2 = convertYamlMapToMap(variablesList);
   if (envList != null) {
-    variablesList2['SERVICENAME'] = containerName;
     if (envList is YamlList) {
       for (var value in envList) {
         String foundStr = searchIfVarUsed(value, variablesList2);
@@ -493,6 +527,8 @@ String workWithServices(
       : null;
   String outputStr = "";
 
+  Map variablesList2 = convertYamlMapToMap(variablesList);
+
   // Working with containers
   outputStr += "services:\n";
   // Level 1: Each key 'services' present is associated to a container
@@ -505,6 +541,7 @@ String workWithServices(
 
     //var foo = containersList[containerName];
     //print("foo:${foo.toString()}");
+    variablesList2['SERVICENAME'] = containerName;
 
     // Level 2 :
     //var tgtImage = servicesList[containerName];
@@ -607,7 +644,7 @@ String workWithServices(
       if (envList != null || envGeneric != null) {
         outputStr += "$t${t}environment:\n";
       }
-      outputStr += generateEnvPart(envList, variablesList, containerName);
+      outputStr += generateEnvPart(envList, variablesList2, containerName);
     } else {
       var envList = containersList[containerName]['environment'];
       var envList2 = servicesList[containerName]['environment'];
@@ -616,8 +653,8 @@ String workWithServices(
       }
       //outputStr += "$t${t}environment:\n";
       //outputStr += "$t$t$t- PODMAN_USERNS:\"keep-id:uid=1000,gid=1000\"\n";
-      outputStr += generateEnvPart(envList2, variablesList, containerName);
-      outputStr += generateEnvPart(envList, variablesList, containerName);
+      outputStr += generateEnvPart(envList2, variablesList2, containerName);
+      outputStr += generateEnvPart(envList, variablesList2, containerName);
       if (envGeneric != null) {
         for (var value in envGeneric) {
           outputStr += "$t$t$t- $value\n";
@@ -630,16 +667,16 @@ String workWithServices(
       }
     }
     //if (addMetrics & useMetricsAuthorized && envMetrics != null) {
-    //  outputStr += generateEnvPart(envMetrics, variablesList, containerName);
+    //  outputStr += generateEnvPart(envMetrics, variablesList2, containerName);
     //}
     if (addMetrics) {
       if (useMetricsAuthorized && envMetrics != null) {
-        outputStr += generateEnvPart(envMetrics, variablesList, containerName);
+        outputStr += generateEnvPart(envMetrics, variablesList2, containerName);
       }
       if (useMetricsHttpAuthorized && envMetricsHttp != null) {
         outputStr += generateEnvPart(
           envMetricsHttp,
-          variablesList,
+          variablesList2,
           containerName,
         );
       }
@@ -648,30 +685,15 @@ String workWithServices(
     useMetricsHttpAuthorized = false;
 
     // Level 2 : deploy:
-    if (devMode) {
-      YamlMap? deployList = containersList[containerName]['deploy'];
-      if (deployList != null) {
-        outputStr += generateDeployPart(deployList, containerName);
-      }
-    } else {
-      YamlMap? deployList = servicesList[containerName]['deploy'];
-      if (deployList != null) {
-        outputStr += generateDeployPart(deployList, containerName);
-      }
+    YamlMap? deployList = (devMode) ? containersList[containerName]['deploy'] : servicesList[containerName]['deploy'];
+    if (deployList != null) {
+      outputStr += generateDeployPart( deployList, variablesList2, containerName );
     }
 
     // Level 2 : logging:
-    if (devMode) {
-      YamlMap? loggingList = containersList[containerName]['logging'];
+    YamlMap? loggingList = (devMode) ? containersList[containerName]['logging'] : servicesList[containerName]['logging'];
       if (loggingList != null) {
-        outputStr += generateLoggingPart(loggingList, containerName);
-      }
-    } else {
-      YamlMap? loggingList = servicesList[containerName]['logging'];
-      if (loggingList != null) {
-        outputStr += generateLoggingPart(loggingList, containerName);
-      }
-    }
+        outputStr += generateLoggingPart( loggingList, variablesList2, containerName );
 
     // Level 2 :
     if (network.isNotEmpty) {
@@ -680,11 +702,7 @@ String workWithServices(
     } else {
       var networksList = containersList[containerName]['networks'];
       if (networksList != null) {
-        outputStr += generateObjectsPartLevel2(
-          'networks',
-          networksList,
-          mappingData,
-        );
+        outputStr += generateObjectsPartLevel2( 'networks', networksList, mappingData );
       }
     }
     // Level 2 : depends_on
